@@ -5,6 +5,11 @@
 ## 应用截图
 
 ![主界面截图](docs/home_screenshot.png)
+<img width="712" height="1243" alt="image" src="https://github.com/user-attachments/assets/94682ce0-bbc3-4b44-ba7c-9feca6b574d1" />
+<img width="721" height="1321" alt="image" src="https://github.com/user-attachments/assets/be339be6-d69a-419f-94df-ff156b893005" />
+<img width="721" height="1321" alt="image" src="https://github.com/user-attachments/assets/ea55070b-da7b-4750-88a8-0c1b79411bc2" />
+
+
 
 > 上图展示转盘主页：顶部为转盘标题与持久结果展示区，中央为可旋转的彩色转盘（12 点钟方向有红色指针作为结果基准），底部为手动旋转与编辑入口。
 
