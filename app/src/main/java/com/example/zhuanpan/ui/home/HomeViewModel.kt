@@ -136,12 +136,13 @@ class HomeViewModel(
             val targetRotation = safeBaseRotation + 360f * extraSpins
             val totalDelta = targetRotation - startRotation
 
-            val durationMs = spinDurationMs.toLong()
+            val durationMs = spinDurationMs.toLong().coerceAtLeast(1L)
             val startTime = System.currentTimeMillis()
+            var maxIterations = 10000
 
-            while (true) {
+            while (maxIterations-- > 0) {
                 val elapsed = System.currentTimeMillis() - startTime
-                if (elapsed >= durationMs) break
+                if (elapsed >= durationMs || elapsed < 0) break
 
                 val progress = elapsed.toFloat() / durationMs
                 // ease-out-cubic: 1 - (1-t)^3
@@ -180,12 +181,13 @@ class HomeViewModel(
 
             val startRotation = currentRotation
             val totalDelta = targetRotation - startRotation
-            val durationMs = 400L
+            val durationMs = 400L.coerceAtLeast(1L)
             val startTime = System.currentTimeMillis()
+            var maxIterations = 10000
 
-            while (true) {
+            while (maxIterations-- > 0) {
                 val elapsed = System.currentTimeMillis() - startTime
-                if (elapsed >= durationMs) break
+                if (elapsed >= durationMs || elapsed < 0) break
 
                 val progress = elapsed.toFloat() / durationMs
                 // ease-out-quart: 1 - (1-t)^4
@@ -292,7 +294,7 @@ class HomeViewModel(
             val results = mutableListOf<String>()
             var drawnIds = _uiState.value.drawnOptionIds
             val settings = _uiState.value.settings
-            val spinDurationMs = settings.spinDurationMs.toLong()
+            val spinDurationMs = settings.spinDurationMs.toLong().coerceAtLeast(1L)
 
             repeat(times) { index ->
                 // 单轮旋转动画
@@ -303,10 +305,11 @@ class HomeViewModel(
                 val targetRotation = safeBaseRotation + 360f * extraSpins
                 val totalDelta = targetRotation - startRotation
                 val startTime = System.currentTimeMillis()
+                var maxIterations = 10000
 
-                while (true) {
+                while (maxIterations-- > 0) {
                     val elapsed = System.currentTimeMillis() - startTime
-                    if (elapsed >= spinDurationMs) break
+                    if (elapsed >= spinDurationMs || elapsed < 0) break
                     val progress = elapsed.toFloat() / spinDurationMs
                     val easedProgress = 1f - (1f - progress).let { it * it * it }
                     _rotationDegrees.value = startRotation + totalDelta * easedProgress
@@ -390,12 +393,13 @@ class HomeViewModel(
             val safeBaseRotation = WheelMath.generateSafeRotation(config.options, startRotation)
             val targetRotation = safeBaseRotation + 360f * 3
             val totalDelta = targetRotation - startRotation
-            val shortDuration = 600L
+            val shortDuration = 600L.coerceAtLeast(1L)
             val startTime = System.currentTimeMillis()
+            var maxIterations = 10000
 
-            while (true) {
+            while (maxIterations-- > 0) {
                 val elapsed = System.currentTimeMillis() - startTime
-                if (elapsed >= shortDuration) break
+                if (elapsed >= shortDuration || elapsed < 0) break
                 val progress = elapsed.toFloat() / shortDuration
                 val easedProgress = 1f - (1f - progress).let { it * it * it }
                 _rotationDegrees.value = startRotation + totalDelta * easedProgress

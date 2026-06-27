@@ -118,7 +118,7 @@ fun HistoryBottomSheet(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    items(history.records) { record ->
+                    items(history.records, key = { it.id }) { record ->
                         HistoryItemRow(record = record)
                     }
                 }

@@ -54,13 +54,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * 历史记录页面。
- *
- * 以全页面形式展示转盘抽取历史记录，布局风格与转盘列表页保持一致。
- *
- * @param onBack 返回回调
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(onBack: () -> Unit) {
@@ -71,7 +64,6 @@ fun HistoryScreen(onBack: () -> Unit) {
 
     var showClearDialog by remember { mutableStateOf(false) }
 
-    // 清空确认弹窗
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
@@ -177,7 +169,7 @@ fun HistoryScreen(onBack: () -> Unit) {
             ) {
                 item { Spacer(modifier = Modifier.height(8.dp)) }
 
-                items(history.records, key = { it.timestamp }) { record ->
+                items(history.records, key = { it.id }) { record ->
                     HistoryItemRow(record = record)
                 }
 
@@ -187,9 +179,6 @@ fun HistoryScreen(onBack: () -> Unit) {
     }
 }
 
-/**
- * 单条历史记录行。
- */
 @Composable
 private fun HistoryItemRow(
     record: SpinHistoryItem,
@@ -231,9 +220,6 @@ private fun HistoryItemRow(
     }
 }
 
-/**
- * 格式化时间戳为可读字符串。
- */
 private fun formatTimestamp(timestamp: Long): String {
     val sdf = SimpleDateFormat("yyyy-M-d HH:mm", Locale.getDefault())
     return sdf.format(Date(timestamp))

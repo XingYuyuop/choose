@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
@@ -1040,79 +1043,83 @@ private fun MultiSpinResultsDialog(
             }
         },
         text = {
-            if (resultMode == 0) {
-                // 逐条显示
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    results.forEachIndexed { index, result ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .clip(CircleShape)
-                                    .background(PrimaryRed),
-                                contentAlignment = Alignment.Center
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(500.dp)
+            ) {
+                if (resultMode == 0) {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        itemsIndexed(results, key = { index, _ -> index }) { index, result ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .background(PrimaryRed),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "${index + 1}",
+                                        fontSize = 12.sp,
+                                        color = ColorWhite,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                                 Text(
-                                    text = "${index + 1}",
-                                    fontSize = 12.sp,
-                                    color = ColorWhite,
-                                    fontWeight = FontWeight.Bold
+                                    text = result.ifBlank { "—" },
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = OnSurface
                                 )
                             }
-                            Text(
-                                text = result.ifBlank { "—" },
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = OnSurface
-                            )
                         }
                     }
-                }
-            } else {
-                // 合并显示：按出现次数降序排列
-                val merged = results.groupingBy { it }
-                    .eachCount()
-                    .toList()
-                    .sortedByDescending { it.second }
+                } else {
+                    val merged = results.groupingBy { it }
+                        .eachCount()
+                        .toList()
+                        .sortedByDescending { it.second }
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    merged.forEachIndexed { index, (name, count) ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .clip(CircleShape)
-                                    .background(PrimaryRed),
-                                contentAlignment = Alignment.Center
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        itemsIndexed(merged, key = { index, _ -> index }) { index, (name, count) ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .background(PrimaryRed),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "${index + 1}",
+                                        fontSize = 12.sp,
+                                        color = ColorWhite,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                                 Text(
-                                    text = "${index + 1}",
-                                    fontSize = 12.sp,
-                                    color = ColorWhite,
-                                    fontWeight = FontWeight.Bold
+                                    text = name.ifBlank { "—" },
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = OnSurface
                                 )
-                            }
-                            Text(
-                                text = name.ifBlank { "—" },
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = OnSurface
-                            )
-                            if (count > 1) {
-                                Text(
-                                    text = "x${count}",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = PrimaryRed
-                                )
+                                if (count > 1) {
+                                    Text(
+                                        text = "x${count}",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PrimaryRed
+                                    )
+                                }
                             }
                         }
                     }
