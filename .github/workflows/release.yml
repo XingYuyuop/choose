@@ -96,6 +96,7 @@ jobs:
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
+          chmod +x gradlew
           if [ -n "$SIGNING_KEYSTORE_PATH" ] && [ -f "$SIGNING_KEYSTORE_PATH" ]; then
             echo "构建签名 release APK..."
             ./gradlew assembleRelease --no-daemon
