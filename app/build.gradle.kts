@@ -26,6 +26,23 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // 从环境变量读取签名信息（CI 自动打包用，本地无环境变量则忽略，行为不变）
+    val signingKeystorePath = System.getenv("SIGNING_KEYSTORE_PATH")
+    val signingKeystorePassword = System.getenv("SIGNING_KEYSTORE_PASSWORD")
+    val signingKeyAlias = System.getenv("SIGNING_KEY_ALIAS")
+    val signingKeyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+
+    signingConfigs {
+        if (signingKeystorePath != null && file(signingKeystorePath).exists()) {
+            create("release") {
+                storeFile = file(signingKeystorePath)
+                storePassword = signingKeystorePassword
+                keyAlias = signingKeyAlias
+                keyPassword = signingKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -37,6 +54,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // 若已通过环境变量配置签名，则应用到 release 构建；否则保持原行为
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
     compileOptions {
