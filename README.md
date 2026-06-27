@@ -2,6 +2,8 @@
 
 一款基于 AI 辅助开发的 Android 转盘决策应用，帮助你快速解决"吃什么""谁来做"等纠结场景。
 
+制作本软件的主要原因为，其他同类型软件都有广告，用着有些不舒服，所有花了点时间用ai做了个。
+
 ![主界面截图](docs/home_screenshot.png)
 
 ## 功能特点
@@ -31,13 +33,20 @@
 本项目由 AI 辅助完成代码编写，包含转盘核心逻辑、UI 界面设计、自动化构建流程等全部开发工作。
 
 ## 截图
-页面<img width="717" height="1231" alt="image" src="https://github.com/user-attachments/assets/3fb6a94b-e67c-469e-9762-f5e846aa0008" />
-同步<img width="696" height="605" alt="image" src="https://github.com/user-attachments/assets/95f7cee9-99fa-4a23-bab8-638dd4ae33ee" />
-列表<img width="712" height="981" alt="image" src="https://github.com/user-attachments/assets/5b335b11-8e9a-4b96-be11-ab3e6ba2c91b" />
-随机<img width="704" height="951" alt="image" src="https://github.com/user-attachments/assets/6bb2a16b-9142-4e37-963d-977472f7ce43" />
-批量<img width="723" height="894" alt="image" src="https://github.com/user-attachments/assets/3fcab31e-a609-4c27-b9be-28f254cf06b0" />
-显示<img width="613" height="1032" alt="image" src="https://github.com/user-attachments/assets/d4588ca8-b3af-45de-8f04-1c8814430cb0" />
-合并<img width="598" height="517" alt="image" src="https://github.com/user-attachments/assets/27ecc6c6-ca2b-463a-b814-b230a101256c" />
+
+页面：![页面](docs/页面.png)
+
+同步：![同步](docs/同步.png)
+
+列表：![列表](docs/列表.png)
+
+随机：![随机](docs/随机.png)
+
+批量：![批量](docs/批量.png)
+
+显示：![显示](docs/显示.png)
+
+合并：![合并](docs/合并.png)
 
 
 ## 许可证
