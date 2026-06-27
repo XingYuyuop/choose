@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    全量备份规则：允许应用本地数据（DataStore 配置、历史记录、转盘数据）
+    备份到云端，以便在应用重装或换机时恢复，确保版本更新/重装数据不丢失。
+-->
+<full-backup-content>
+    <include domain="file" path="datastore/."/>
+    <include domain="sharedpref" path="."/>
+    <include domain="database" path="."/>
+    <include domain="file" path="."/>
+</full-backup-content>

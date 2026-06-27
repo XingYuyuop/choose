@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    数据提取规则：允许云端备份与设备迁移传输，
+    确保应用更新、重装或换机时用户数据可被完整恢复。
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="datastore/."/>
+        <include domain="sharedpref" path="."/>
+        <include domain="database" path="."/>
+        <include domain="file" path="."/>
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="datastore/."/>
+        <include domain="sharedpref" path="."/>
+        <include domain="database" path="."/>
+        <include domain="file" path="."/>
+    </device-transfer>
+</data-extraction-rules>
