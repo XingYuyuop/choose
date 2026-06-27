@@ -30,6 +30,16 @@
 
 本项目由 AI 辅助完成代码编写，包含转盘核心逻辑、UI 界面设计、自动化构建流程等全部开发工作。
 
+## 截图
+页面<img width="717" height="1231" alt="image" src="https://github.com/user-attachments/assets/3fb6a94b-e67c-469e-9762-f5e846aa0008" />
+同步<img width="696" height="605" alt="image" src="https://github.com/user-attachments/assets/95f7cee9-99fa-4a23-bab8-638dd4ae33ee" />
+列表<img width="712" height="981" alt="image" src="https://github.com/user-attachments/assets/5b335b11-8e9a-4b96-be11-ab3e6ba2c91b" />
+随机<img width="704" height="951" alt="image" src="https://github.com/user-attachments/assets/6bb2a16b-9142-4e37-963d-977472f7ce43" />
+批量<img width="723" height="894" alt="image" src="https://github.com/user-attachments/assets/3fcab31e-a609-4c27-b9be-28f254cf06b0" />
+显示<img width="613" height="1032" alt="image" src="https://github.com/user-attachments/assets/d4588ca8-b3af-45de-8f04-1c8814430cb0" />
+合并<img width="598" height="517" alt="image" src="https://github.com/user-attachments/assets/27ecc6c6-ca2b-463a-b814-b230a101256c" />
+
+
 ## 许可证
 
 MIT License
