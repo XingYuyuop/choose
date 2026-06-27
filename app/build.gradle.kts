@@ -20,20 +20,20 @@ android {
         applicationId = "com.example.zhuanpan"
         minSdk = 24
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.1.1"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // 从环境变量读取签名信息（CI 自动打包用，本地无环境变量则忽略，行为不变）
-    val signingKeystorePath = System.getenv("SIGNING_KEYSTORE_PATH")
-    val signingKeystorePassword = System.getenv("SIGNING_KEYSTORE_PASSWORD")
-    val signingKeyAlias = System.getenv("SIGNING_KEY_ALIAS")
-    val signingKeyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+    // 签名配置：优先使用环境变量（CI），其次使用项目根目录的 choose.jks（本地开发）
+    val signingKeystorePath = System.getenv("SIGNING_KEYSTORE_PATH") ?: "choose.jks"
+    val signingKeystorePassword = System.getenv("SIGNING_KEYSTORE_PASSWORD") ?: "vqp2mo4IbiUajG0OTf"
+    val signingKeyAlias = System.getenv("SIGNING_KEY_ALIAS") ?: "choose"
+    val signingKeyPassword = System.getenv("SIGNING_KEY_PASSWORD") ?: "vqp2mo4IbiUajG0OTf"
 
     signingConfigs {
-        if (signingKeystorePath != null && file(signingKeystorePath).exists()) {
+        if (file(signingKeystorePath).exists()) {
             create("release") {
                 storeFile = file(signingKeystorePath)
                 storePassword = signingKeystorePassword

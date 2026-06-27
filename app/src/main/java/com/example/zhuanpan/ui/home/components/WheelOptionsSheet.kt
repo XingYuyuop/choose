@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,6 +22,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -54,7 +57,10 @@ import com.example.zhuanpan.ui.theme.PrimaryRed
 /**
  * 转盘选项管理底部弹窗。
  *
+ * @param wheelTitle 当前转盘名称
+ * @param wheelId 当前转盘 ID
  * @param options 当前选项列表
+ * @param onWheelTitleChanged 转盘名称修改回调
  * @param onOptionSelected 选项被点击（切换）回调
  * @param onOptionLabelChanged 选项名称变化回调
  * @param onOptionRemoved 删除选项回调
@@ -64,7 +70,10 @@ import com.example.zhuanpan.ui.theme.PrimaryRed
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WheelOptionsSheet(
+    wheelTitle: String,
+    wheelId: String,
     options: List<WheelOption>,
+    onWheelTitleChanged: (String) -> Unit,
     onOptionSelected: (String) -> Unit,
     onOptionLabelChanged: (String, String) -> Unit,
     onOptionRemoved: (String) -> Unit,
@@ -74,6 +83,8 @@ fun WheelOptionsSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     var newOptionName by remember { mutableStateOf("") }
     var optionToDelete by remember { mutableStateOf<WheelOption?>(null) }
+    var isEditingTitle by remember { mutableStateOf(false) }
+    var titleText by remember(wheelId) { mutableStateOf(wheelTitle) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -86,7 +97,9 @@ fun WheelOptionsSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp)
+                .imePadding()
+                .navigationBarsPadding()
+                .padding(bottom = 16.dp)
         ) {
             Text(
                 text = "管理选项",
@@ -94,6 +107,84 @@ fun WheelOptionsSheet(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 转盘名称（点击可编辑）
+            if (isEditingTitle) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    BasicTextField(
+                        value = titleText,
+                        onValueChange = {
+                            if (it.length <= 20) titleText = it
+                        },
+                        textStyle = TextStyle(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        singleLine = true,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Background)
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        decorationBox = { innerTextField ->
+                            Box {
+                                if (titleText.isBlank()) {
+                                    Text(
+                                        text = "输入转盘名称",
+                                        fontSize = 16.sp,
+                                        color = OnSurfaceVariant
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
+                    )
+                    TextButton(
+                        onClick = {
+                            if (titleText.trim().isNotEmpty()) {
+                                onWheelTitleChanged(titleText.trim())
+                            }
+                            isEditingTitle = false
+                        }
+                    ) {
+                        Text("完成", color = PrimaryRed, fontSize = 14.sp)
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { isEditingTitle = true }
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = wheelTitle.ifBlank { "未命名转盘" },
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (wheelTitle.isBlank()) OnSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                    )
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "修改名称",
+                        tint = OnSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            HorizontalDivider(color = Divider, thickness = 0.5.dp)
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -108,7 +199,7 @@ fun WheelOptionsSheet(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(320.dp),
+                        .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(options, key = { it.id }) { option ->

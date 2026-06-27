@@ -93,12 +93,14 @@ class HomeViewModel(
 
     /**
      * 校验转盘配置是否有效。
+     *
+     * 注意：不再校验选项数量，允许用户在选项不足两个时也不弹出提示。
      */
     private fun validateConfig(config: WheelConfig): String? {
-        return when {
-            config.options.size < 2 -> "请至少添加两个选项"
-            config.options.all { it.weight <= 0 } -> "所有选项权重不能为 0"
-            else -> null
+        return if (config.options.isNotEmpty() && config.options.all { it.weight <= 0 }) {
+            "所有选项权重不能为 0"
+        } else {
+            null
         }
     }
 
@@ -129,9 +131,10 @@ class HomeViewModel(
 
             val startRotation = _rotationDegrees.value
             val extraSpins = Random.nextInt(5, 10)
-            val randomOffset = Random.nextFloat() * 360f
-            val totalDelta = 360f * extraSpins + randomOffset
-            val targetRotation = startRotation + totalDelta
+            // 使用安全旋转生成，确保指针不会停留在选项边界
+            val safeBaseRotation = WheelMath.generateSafeRotation(config.options, startRotation)
+            val targetRotation = safeBaseRotation + 360f * extraSpins
+            val totalDelta = targetRotation - startRotation
 
             val durationMs = spinDurationMs.toLong()
             val startTime = System.currentTimeMillis()
@@ -206,6 +209,261 @@ class HomeViewModel(
         if (!_uiState.value.isSpinning) {
             _rotationDegrees.value += delta
         }
+    }
+
+    /**
+     * 显示批量旋转次数选择弹窗。
+     */
+    fun onMultiSpinPickerVisibilityChanged(visible: Boolean) {
+        _uiState.update { it.copy(showMultiSpinPicker = visible) }
+    }
+
+    /**
+     * 用户确认旋转次数后，保存次数并弹出模式选择弹窗。
+     *
+     * @param count 用户选择的旋转次数
+     */
+    fun onMultiSpinCountConfirmed(count: Int) {
+        _uiState.update {
+            it.copy(
+                showMultiSpinPicker = false,
+                pendingMultiSpinCount = count,
+                showMultiSpinModePicker = true
+            )
+        }
+    }
+
+    /**
+     * 显示/隐藏旋转模式选择弹窗。
+     */
+    fun onMultiSpinModePickerVisibilityChanged(visible: Boolean) {
+        _uiState.update { it.copy(showMultiSpinModePicker = visible) }
+    }
+
+    /**
+     * 切换结果展示模式：0=逐条显示，1=合并显示。
+     */
+    fun onMultiSpinResultModeChanged(mode: Int) {
+        _uiState.update { it.copy(multiSpinResultMode = mode) }
+    }
+
+    /**
+     * 关闭批量旋转结果弹窗。
+     */
+    fun onMultiSpinResultsDismissed() {
+        _uiState.update {
+            it.copy(
+                showMultiSpinResults = false,
+                multiSpinTotal = 0,
+                multiSpinCurrent = 0,
+                multiSpinResults = emptyList()
+            )
+        }
+    }
+
+    /**
+     * 启动批量旋转：连续旋转 [times] 次，每次完成后记录结果，
+     * 全部结束后统一弹出结果展示弹窗。
+     *
+     * 动画方式与 [startSpin] 一致（ease-out-cubic），每轮之间有短暂间隔。
+     * 遵循"不允许重复抽取"设置，已抽完时自动重置。
+     *
+     * @param times 旋转次数
+     */
+    fun startMultiSpin(times: Int) {
+        if (times <= 0) return
+
+        spinJob?.cancel()
+
+        val config = _uiState.value.wheelConfig
+        if (config.options.isEmpty() || config.options.all { it.weight <= 0 }) return
+
+        spinJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isSpinning = true,
+                    multiSpinTotal = times,
+                    multiSpinCurrent = 0,
+                    multiSpinResults = emptyList(),
+                    showMultiSpinPicker = false
+                )
+            }
+
+            val results = mutableListOf<String>()
+            var drawnIds = _uiState.value.drawnOptionIds
+            val settings = _uiState.value.settings
+            val spinDurationMs = settings.spinDurationMs.toLong()
+
+            repeat(times) { index ->
+                // 单轮旋转动画
+                val startRotation = _rotationDegrees.value
+                val extraSpins = Random.nextInt(5, 10)
+                // 使用安全旋转生成，确保指针不会停留在选项边界
+                val safeBaseRotation = WheelMath.generateSafeRotation(config.options, startRotation)
+                val targetRotation = safeBaseRotation + 360f * extraSpins
+                val totalDelta = targetRotation - startRotation
+                val startTime = System.currentTimeMillis()
+
+                while (true) {
+                    val elapsed = System.currentTimeMillis() - startTime
+                    if (elapsed >= spinDurationMs) break
+                    val progress = elapsed.toFloat() / spinDurationMs
+                    val easedProgress = 1f - (1f - progress).let { it * it * it }
+                    _rotationDegrees.value = startRotation + totalDelta * easedProgress
+                    kotlinx.coroutines.delay(16)
+                }
+                _rotationDegrees.value = targetRotation
+
+                // 计算本轮结果（遵循不允许重复抽取设置）
+                val (winner, nextDrawnIds, _) = resolveWinner(
+                    options = config.options,
+                    drawnIds = drawnIds,
+                    allowRepeat = settings.allowRepeat,
+                    rotation = targetRotation
+                )
+                drawnIds = nextDrawnIds
+                val label = winner?.label ?: ""
+                results.add(label)
+
+                _uiState.update {
+                    it.copy(
+                        multiSpinCurrent = index + 1,
+                        multiSpinResults = results.toList(),
+                        drawnOptionIds = drawnIds
+                    )
+                }
+
+                // 保存历史记录
+                winner?.let {
+                    historyRepository.addRecord(
+                        SpinHistoryItem(
+                            result = it.label,
+                            wheelTitle = config.title
+                        )
+                    )
+                }
+
+                // 轮间短暂停顿（非最后一轮）
+                if (index < times - 1) {
+                    kotlinx.coroutines.delay(300)
+                }
+            }
+
+            _uiState.update {
+                it.copy(
+                    isSpinning = false,
+                    showMultiSpinResults = true
+                )
+            }
+        }
+    }
+
+    /**
+     * 同时旋转：快速生成 [times] 个结果，无需逐次动画。
+     *
+     * 采用加权随机选取，遵循"不允许重复抽取"设置。
+     * 仅播放一次短动画作为视觉反馈，随后立即展示全部结果。
+     *
+     * @param times 旋转次数
+     */
+    fun startMultiSpinSimultaneous(times: Int) {
+        if (times <= 0) return
+
+        spinJob?.cancel()
+
+        val config = _uiState.value.wheelConfig
+        if (config.options.isEmpty() || config.options.all { it.weight <= 0 }) return
+
+        spinJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isSpinning = true,
+                    multiSpinTotal = times,
+                    multiSpinCurrent = 0,
+                    multiSpinResults = emptyList(),
+                    showMultiSpinModePicker = false
+                )
+            }
+
+            // 短动画作为视觉反馈（使用安全旋转避免边界停留）
+            val startRotation = _rotationDegrees.value
+            val safeBaseRotation = WheelMath.generateSafeRotation(config.options, startRotation)
+            val targetRotation = safeBaseRotation + 360f * 3
+            val totalDelta = targetRotation - startRotation
+            val shortDuration = 600L
+            val startTime = System.currentTimeMillis()
+
+            while (true) {
+                val elapsed = System.currentTimeMillis() - startTime
+                if (elapsed >= shortDuration) break
+                val progress = elapsed.toFloat() / shortDuration
+                val easedProgress = 1f - (1f - progress).let { it * it * it }
+                _rotationDegrees.value = startRotation + totalDelta * easedProgress
+                kotlinx.coroutines.delay(16)
+            }
+            _rotationDegrees.value = targetRotation
+
+            // 快速生成 N 个加权随机结果
+            val settings = _uiState.value.settings
+            val results = mutableListOf<String>()
+            var drawnIds = _uiState.value.drawnOptionIds
+            val baseCandidates = config.options.filter { it.weight > 0 }
+
+            repeat(times) { index ->
+                val candidates = if (settings.allowRepeat) {
+                    baseCandidates
+                } else {
+                    baseCandidates.filter { it.id !in drawnIds }
+                }
+
+                val pool = if (candidates.isEmpty()) {
+                    // 全部抽完，重置
+                    drawnIds = emptySet()
+                    baseCandidates
+                } else {
+                    candidates
+                }
+
+                val winner = pickWeightedRandom(pool)
+                drawnIds = drawnIds + (winner?.id ?: "")
+                results.add(winner?.label ?: "")
+
+                // 保存历史记录
+                winner?.let {
+                    historyRepository.addRecord(
+                        SpinHistoryItem(
+                            result = it.label,
+                            wheelTitle = config.title
+                        )
+                    )
+                }
+            }
+
+            _uiState.update {
+                it.copy(
+                    isSpinning = false,
+                    multiSpinCurrent = times,
+                    multiSpinResults = results,
+                    drawnOptionIds = drawnIds,
+                    showMultiSpinResults = true
+                )
+            }
+        }
+    }
+
+    /**
+     * 按权重随机选取一个选项。
+     */
+    private fun pickWeightedRandom(options: List<WheelOption>): WheelOption? {
+        if (options.isEmpty()) return null
+        val totalWeight = options.sumOf { it.weight }.toFloat()
+        if (totalWeight <= 0) return options.first()
+        var random = Random.nextFloat() * totalWeight
+        for (option in options) {
+            random -= option.weight
+            if (random <= 0) return option
+        }
+        return options.last()
     }
 
     /**

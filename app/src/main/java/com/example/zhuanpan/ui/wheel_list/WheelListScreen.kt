@@ -99,7 +99,7 @@ fun WheelListScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "转盘列表",
+                        text = "所有列表",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )

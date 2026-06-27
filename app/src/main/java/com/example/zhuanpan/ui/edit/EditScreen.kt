@@ -1,5 +1,6 @@
 package com.example.zhuanpan.ui.edit
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -317,7 +318,10 @@ private fun UnsavedChangesDialog(
 }
 
 /**
- * 配色方案预览小圆盘。
+ * 配色方案预览小圆盘（多色环形显示）。
+ *
+ * 将配色方案的所有颜色以等分扇形绘制在圆形画布上，
+ * 提供直观的彩色视觉辨识度。
  */
 @Composable
 private fun ColorSchemePreview(
@@ -325,10 +329,29 @@ private fun ColorSchemePreview(
     modifier: Modifier = Modifier
 ) {
     val colors = ColorScheme.fromName(colorSchemeName).toComposeColors()
-    Box(
+    Canvas(
         modifier = modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(colors.firstOrNull() ?: Color.Gray)
-    )
+    ) {
+        val diameter = size.minDimension
+        if (colors.isEmpty()) {
+            drawCircle(color = Color.Gray)
+            return@Canvas
+        }
+        val sweep = 360f / colors.size
+        colors.forEachIndexed { index, color ->
+            drawArc(
+                color = color,
+                startAngle = index * sweep - 90f,
+                sweepAngle = sweep,
+                useCenter = true
+            )
+        }
+        // 中心留白，形成环形效果，增强视觉辨识度
+        drawCircle(
+            color = ColorWhite,
+            radius = diameter * 0.28f
+        )
+    }
 }

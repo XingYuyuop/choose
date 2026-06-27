@@ -34,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -50,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +60,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -135,7 +138,12 @@ fun HomeScreen(
     // 选项管理底部弹窗
     if (uiState.showOptions) {
         WheelOptionsSheet(
+            wheelTitle = uiState.wheelConfig.title,
+            wheelId = uiState.wheelConfig.id,
             options = uiState.wheelConfig.options,
+            onWheelTitleChanged = { newTitle ->
+                viewModel.onWheelTitleChanged(uiState.wheelConfig.id, newTitle)
+            },
             onOptionSelected = { optionId ->
                 viewModel.onOptionsVisibilityChanged(false)
                 viewModel.animateToOption(optionId)
@@ -153,19 +161,47 @@ fun HomeScreen(
         )
     }
 
-    // 首次启动引导提示（仅显示一次）
-    if (!uiState.settings.hasSeenGuide) {
-        FirstLaunchGuideDialog(
-            onPrimaryClick = { viewModel.onGuideSeen() },
-            onSecondaryClick = { viewModel.onGuideSeen() }
-        )
-    }
-
     // 备份还原底部弹窗
     var showBackupRestoreSheet by remember { mutableStateOf(false) }
     if (showBackupRestoreSheet) {
         BackupRestoreBottomSheet(
             onDismiss = { showBackupRestoreSheet = false }
+        )
+    }
+
+    // 批量旋转次数选择弹窗
+    if (uiState.showMultiSpinPicker) {
+        MultiSpinPickerDialog(
+            onConfirm = { count ->
+                viewModel.onMultiSpinCountConfirmed(count)
+            },
+            onDismiss = { viewModel.onMultiSpinPickerVisibilityChanged(false) }
+        )
+    }
+
+    // 批量旋转模式选择弹窗
+    if (uiState.showMultiSpinModePicker) {
+        MultiSpinModePickerDialog(
+            count = uiState.pendingMultiSpinCount,
+            onSimultaneous = {
+                viewModel.onMultiSpinModePickerVisibilityChanged(false)
+                viewModel.startMultiSpinSimultaneous(uiState.pendingMultiSpinCount)
+            },
+            onSequential = {
+                viewModel.onMultiSpinModePickerVisibilityChanged(false)
+                viewModel.startMultiSpin(uiState.pendingMultiSpinCount)
+            },
+            onDismiss = { viewModel.onMultiSpinModePickerVisibilityChanged(false) }
+        )
+    }
+
+    // 批量旋转结果弹窗
+    if (uiState.showMultiSpinResults) {
+        MultiSpinResultsDialog(
+            results = uiState.multiSpinResults,
+            resultMode = uiState.multiSpinResultMode,
+            onModeChanged = { mode -> viewModel.onMultiSpinResultModeChanged(mode) },
+            onDismiss = { viewModel.onMultiSpinResultsDismissed() }
         )
     }
 
@@ -202,6 +238,8 @@ fun HomeScreen(
                     showMoreMenu = uiState.showMoreMenu,
                     rotationDegrees = rotationDegrees,
                     realtimeResult = realtimeResult,
+                    multiSpinTotal = uiState.multiSpinTotal,
+                    multiSpinCurrent = uiState.multiSpinCurrent,
                     onSettingsClick = { viewModel.onSettingsVisibilityChanged(!uiState.showSettings) },
                     onMoreMenuToggle = { viewModel.onMoreMenuVisibilityChanged(it) },
                     onHistoryClick = onNavigateToHistory,
@@ -213,6 +251,7 @@ fun HomeScreen(
                     onManualRotation = { delta -> viewModel.updateRotation(delta) },
                     onResetWheel = { viewModel.onResetWheel() },
                     onBackupRestoreClick = { showBackupRestoreSheet = true },
+                    onMultiSpinClick = { viewModel.onMultiSpinPickerVisibilityChanged(true) },
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
@@ -239,6 +278,8 @@ private fun HomeContent(
     showMoreMenu: Boolean,
     rotationDegrees: Float,
     realtimeResult: String,
+    multiSpinTotal: Int,
+    multiSpinCurrent: Int,
     onSettingsClick: () -> Unit,
     onMoreMenuToggle: (Boolean) -> Unit,
     onHistoryClick: () -> Unit,
@@ -250,6 +291,7 @@ private fun HomeContent(
     onManualRotation: (Float) -> Unit,
     onResetWheel: () -> Unit,
     onBackupRestoreClick: () -> Unit,
+    onMultiSpinClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -271,10 +313,10 @@ private fun HomeContent(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // 标题按钮：点击打开选项管理弹窗
+        // 标题按钮：点击跳转所有列表页
         TitleButton(
             title = config.title,
-            onClick = onOptionsClick
+            onClick = onWheelListClick
         )
 
         // 实时结果显示区域（在轮盘名称正下方，动态显示指针所指选项）
@@ -286,17 +328,6 @@ private fun HomeContent(
                 fontWeight = FontWeight.Bold,
                 color = OnSurface,
                 textAlign = TextAlign.Center
-            )
-        }
-
-        // 选项不足时的顶部提示
-        if (config.options.size < 2) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "请至少添加两个选项",
-                fontSize = 13.sp,
-                color = PrimaryRed,
-                fontWeight = FontWeight.Medium
             )
         }
 
@@ -332,9 +363,12 @@ private fun HomeContent(
         HomeBottomControls(
             isSpinning = isSpinning,
             hasOptions = config.options.isNotEmpty() && config.options.any { it.weight > 0 },
+            multiSpinTotal = multiSpinTotal,
+            multiSpinCurrent = multiSpinCurrent,
             onSettingsClick = onSettingsClick,
             onSpinClick = onSpinClick,
-            onEditClick = onEditClick
+            onEditClick = onEditClick,
+            onMultiSpinClick = onMultiSpinClick
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -450,6 +484,11 @@ private fun HomeTopBar(
 
 /**
  * 标题按钮。
+ *
+ * 点击转盘名称整体跳转到"所有列表"页面。
+ *
+ * @param title 转盘标题
+ * @param onClick 点击回调（跳转所有列表页）
  */
 @Composable
 private fun TitleButton(
@@ -472,8 +511,8 @@ private fun TitleButton(
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Filled.List,
-            contentDescription = null,
-            tint = OnSurfaceVariant,
+            contentDescription = "所有列表",
+            tint = PrimaryRed,
             modifier = Modifier.size(18.dp)
         )
         Spacer(modifier = Modifier.width(6.dp))
@@ -493,42 +532,64 @@ private fun TitleButton(
 private fun HomeBottomControls(
     isSpinning: Boolean,
     hasOptions: Boolean,
+    multiSpinTotal: Int,
+    multiSpinCurrent: Int,
     onSettingsClick: () -> Unit,
     onSpinClick: () -> Unit,
     onEditClick: () -> Unit,
+    onMultiSpinClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 左侧设置按钮，点击打开设置面板
-        ControlIconButton(
-            icon = Icons.Default.Settings,
-            contentDescription = "设置",
-            onClick = onSettingsClick
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 左侧设置按钮，点击打开设置面板
+            ControlIconButton(
+                icon = Icons.Default.Settings,
+                contentDescription = "设置",
+                onClick = onSettingsClick
+            )
 
-        // 中间旋转按钮：无选项时禁用
-        SpinButton(
-            text = when {
-                !hasOptions -> "请先添加选项"
-                isSpinning -> "旋转中..."
-                else -> "点击旋转"
-            },
-            enabled = !isSpinning && hasOptions,
-            onClick = onSpinClick
-        )
+            // 中间旋转按钮：无选项时禁用
+            SpinButton(
+                text = when {
+                    !hasOptions -> "请先添加选项"
+                    isSpinning && multiSpinTotal > 0 -> "旋转中 ${multiSpinCurrent}/${multiSpinTotal}"
+                    isSpinning -> "旋转中..."
+                    else -> "点击旋转"
+                },
+                enabled = !isSpinning && hasOptions,
+                onClick = onSpinClick
+            )
 
-        // 右侧编辑选项按钮
-        ControlIconButton(
-            icon = Icons.Default.Edit,
-            contentDescription = "编辑选项",
-            onClick = onEditClick
-        )
+            // 右侧编辑选项按钮
+            ControlIconButton(
+                icon = Icons.Default.Edit,
+                contentDescription = "编辑选项",
+                onClick = onEditClick
+            )
+        }
+
+        // 批量旋转按钮
+        TextButton(
+            onClick = onMultiSpinClick,
+            enabled = !isSpinning && hasOptions
+        ) {
+            Text(
+                text = "旋转N次",
+                fontSize = 13.sp,
+                color = if (!isSpinning && hasOptions) PrimaryRed else OnSurfaceVariant,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -754,4 +815,316 @@ private fun BottomTabBar(
             )
         )
     }
+}
+
+/**
+ * 批量旋转次数选择弹窗。
+ *
+ * 提供快捷选项（3 / 5 / 10 / 20 次）及自定义输入，
+ * 用户选择次数后点击"确定"进入模式选择。
+ */
+@Composable
+private fun MultiSpinPickerDialog(
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var inputText by remember { mutableStateOf("") }
+
+    val parsedCount = inputText.toIntOrNull()
+    val isValid = parsedCount != null && parsedCount in 1..100
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "批量旋转",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "输入或选择需要旋转的次数（1~100）",
+                    fontSize = 14.sp,
+                    color = OnSurfaceVariant
+                )
+
+                // 快捷选项
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(3, 5, 10, 20).forEach { times ->
+                        TextButton(
+                            onClick = { onConfirm(times) },
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(percent = 50))
+                                .background(PrimaryRed.copy(alpha = 0.1f))
+                        ) {
+                            Text(
+                                text = "${times}次",
+                                color = PrimaryRed,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+
+                // 自定义输入
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = { value ->
+                        inputText = value.filter { it.isDigit() }
+                    },
+                    label = { Text("自定义次数", fontSize = 14.sp) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { parsedCount?.let(onConfirm) },
+                enabled = isValid
+            ) {
+                Text(
+                    text = "确定",
+                    color = if (isValid) PrimaryRed else OnSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消", color = OnSurfaceVariant)
+            }
+        },
+        containerColor = ColorWhite,
+        modifier = modifier
+    )
+}
+
+/**
+ * 旋转模式选择弹窗。
+ *
+ * 提供两种模式：同时旋转（快速）和依次旋转（带动画）。
+ */
+@Composable
+private fun MultiSpinModePickerDialog(
+    count: Int,
+    onSimultaneous: () -> Unit,
+    onSequential: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "选择旋转模式",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "即将旋转 ${count} 次，请选择旋转模式：",
+                    fontSize = 14.sp,
+                    color = OnSurfaceVariant
+                )
+
+                // 同时旋转
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(PrimaryRed.copy(alpha = 0.08f))
+                        .clickable { onSimultaneous() }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "同时旋转",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryRed
+                        )
+                        Text(
+                            text = "快速生成 ${count} 个结果，无需逐次等待",
+                            fontSize = 12.sp,
+                            color = OnSurfaceVariant
+                        )
+                    }
+                }
+
+                // 依次旋转
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Background)
+                        .clickable { onSequential() }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "依次旋转",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = OnSurface
+                        )
+                        Text(
+                            text = "逐次旋转动画，每次记录结果",
+                            fontSize = 12.sp,
+                            color = OnSurfaceVariant
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消", color = OnSurfaceVariant)
+            }
+        },
+        containerColor = ColorWhite,
+        modifier = modifier
+    )
+}
+
+/**
+ * 批量旋转结果展示弹窗。
+ *
+ * 支持两种显示模式切换：
+ * - 模式0（逐条）：显示每次旋转的具体结果
+ * - 模式1（合并）：合并相同结果，按次数从多到少排序，显示"名称 xN"
+ */
+@Composable
+private fun MultiSpinResultsDialog(
+    results: List<String>,
+    resultMode: Int,
+    onModeChanged: (Int) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "旋转结果",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                // 切换显示模式
+                TextButton(onClick = {
+                    onModeChanged(if (resultMode == 0) 1 else 0)
+                }) {
+                    Text(
+                        text = if (resultMode == 0) "切换为合并" else "切换为逐条",
+                        fontSize = 13.sp,
+                        color = PrimaryRed,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        },
+        text = {
+            if (resultMode == 0) {
+                // 逐条显示
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    results.forEachIndexed { index, result ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(PrimaryRed),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "${index + 1}",
+                                    fontSize = 12.sp,
+                                    color = ColorWhite,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Text(
+                                text = result.ifBlank { "—" },
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = OnSurface
+                            )
+                        }
+                    }
+                }
+            } else {
+                // 合并显示：按出现次数降序排列
+                val merged = results.groupingBy { it }
+                    .eachCount()
+                    .toList()
+                    .sortedByDescending { it.second }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    merged.forEachIndexed { index, (name, count) ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(PrimaryRed),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "${index + 1}",
+                                    fontSize = 12.sp,
+                                    color = ColorWhite,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Text(
+                                text = name.ifBlank { "—" },
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = OnSurface
+                            )
+                            if (count > 1) {
+                                Text(
+                                    text = "x${count}",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PrimaryRed
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("确定", color = PrimaryRed, fontWeight = FontWeight.Medium)
+            }
+        },
+        containerColor = ColorWhite,
+        modifier = modifier
+    )
 }
