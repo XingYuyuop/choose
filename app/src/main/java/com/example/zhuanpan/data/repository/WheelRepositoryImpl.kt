@@ -54,6 +54,14 @@ class WheelRepositoryImpl(
         return newId
     }
 
+    override suspend fun createWheel(title: String, options: List<com.example.zhuanpan.data.model.WheelOption>): String {
+        val newId = UUID.randomUUID().toString()
+        val newWheel = WheelConfig(id = newId, title = title, options = options)
+        val store = currentStore()
+        saveStore(WheelStore(store.wheels + newWheel, newId))
+        return newId
+    }
+
     override suspend fun selectWheel(id: String) {
         val store = currentStore()
         if (store.wheels.any { it.id == id }) {

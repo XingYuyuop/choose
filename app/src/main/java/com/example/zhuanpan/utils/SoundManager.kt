@@ -3,19 +3,18 @@ package com.example.zhuanpan.utils
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.SoundPool
-import android.net.Uri
 import com.example.zhuanpan.R
 
 /**
  * 音效管理器。
  *
- * 负责加载和播放旋转音效与结果音效。
+ * 负责加载和播放旋转过程中的滴答音效与结果音效。
  * 使用 SoundPool 实现低延迟播放，适合短促音效场景。
+ * 旋转过程中每经过一个选项边界播放一次滴答声，与转盘转动视觉同步。
  */
 class SoundManager(context: Context) {
 
     private val soundPool: SoundPool
-    private var spinSoundId: Int = 0
     private var resultSoundId: Int = 0
     private var tickSoundId: Int = 0
     private var loaded = false
@@ -27,7 +26,7 @@ class SoundManager(context: Context) {
             .build()
 
         soundPool = SoundPool.Builder()
-            .setMaxStreams(3)
+            .setMaxStreams(6)
             .setAudioAttributes(audioAttributes)
             .build()
 
@@ -36,11 +35,6 @@ class SoundManager(context: Context) {
         }
 
         // 加载音效资源
-        try {
-            spinSoundId = soundPool.load(context, R.raw.spin_sound, 1)
-        } catch (_: Exception) {
-            spinSoundId = 0
-        }
         try {
             resultSoundId = soundPool.load(context, R.raw.result_sound, 1)
         } catch (_: Exception) {
@@ -54,29 +48,24 @@ class SoundManager(context: Context) {
     }
 
     /**
-     * 播放旋转音效。
+     * 播放滴答音效（旋转过程中每经过一个选项边界时）。
+     * 旋转越快播放越密集，减速时间隔变长，自然产生"快转-减速-停止"的听觉反馈。
+     *
+     * @param volume 音量（0.0~1.0），由动画循环根据进度动态控制，实现渐入渐出效果
      */
-    fun playSpinSound() {
-        if (loaded && spinSoundId != 0) {
-            soundPool.play(spinSoundId, 0.6f, 0.6f, 1, 0, 1.0f)
+    fun playTickSound(volume: Float = 0.25f) {
+        if (loaded && tickSoundId != 0) {
+            val clampedVolume = volume.coerceIn(0.05f, 0.4f)
+            soundPool.play(tickSoundId, clampedVolume, clampedVolume, 0, 0, 1.0f)
         }
     }
 
     /**
-     * 播放结果音效。
+     * 播放结果音效（旋转结束时）。
      */
     fun playResultSound() {
         if (loaded && resultSoundId != 0) {
-            soundPool.play(resultSoundId, 0.8f, 0.8f, 1, 0, 1.0f)
-        }
-    }
-
-    /**
-     * 播放滴答音效（旋转过程中每经过一个选项边界时）。
-     */
-    fun playTickSound() {
-        if (loaded && tickSoundId != 0) {
-            soundPool.play(tickSoundId, 0.4f, 0.4f, 1, 0, 1.2f)
+            soundPool.play(resultSoundId, 0.35f, 0.35f, 1, 0, 1.0f)
         }
     }
 

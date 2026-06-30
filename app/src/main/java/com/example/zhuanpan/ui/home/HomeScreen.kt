@@ -101,6 +101,7 @@ fun HomeScreen(
     onNavigateToEdit: () -> Unit,
     onNavigateToWheelList: () -> Unit,
     onNavigateToHistory: () -> Unit,
+    onNavigateToCreateWheel: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(
         factory = HomeViewModel.provideFactory(
             wheelRepository = (LocalContext.current.applicationContext as ZhuanpanApplication).wheelRepository,
@@ -250,7 +251,7 @@ fun HomeScreen(
                     onHistoryClick = onNavigateToHistory,
                     onOptionsClick = { viewModel.onOptionsVisibilityChanged(true) },
                     onWheelListClick = onNavigateToWheelList,
-                    onCreateWheelClick = { viewModel.onCreateWheel() },
+                    onCreateWheelClick = onNavigateToCreateWheel,
                     onEditClick = onNavigateToEdit,
                     onSpinClick = { viewModel.startSpin(uiState.settings.spinDurationMs) },
                     onManualRotation = { delta -> viewModel.updateRotation(delta) },

@@ -129,7 +129,6 @@ class HomeViewModel(
 
         spinJob = viewModelScope.launch {
             onSpinStarted()
-            if (_uiState.value.settings.soundEnabled) soundManager.playSpinSound()
 
             val startRotation = _rotationDegrees.value
             val extraSpins = Random.nextInt(5, 10)
@@ -141,6 +140,14 @@ class HomeViewModel(
             val durationMs = spinDurationMs.toLong().coerceAtLeast(1L)
             val startTime = System.currentTimeMillis()
             var maxIterations = 10000
+            val soundEnabled = _uiState.value.settings.soundEnabled
+
+            // 计算每个选项的角度宽度，用于 tick 音效同步
+            val totalWeight = config.options.sumOf { it.weight }.coerceAtLeast(1)
+            val sectorAngles = config.options.map { 360f * it.weight / totalWeight }
+            var lastTickSectorIndex = -1
+            var lastTickTime = 0L
+            val minTickInterval = 50L
 
             while (maxIterations-- > 0) {
                 val elapsed = System.currentTimeMillis() - startTime
@@ -149,7 +156,34 @@ class HomeViewModel(
                 val progress = elapsed.toFloat() / durationMs
                 // ease-out-cubic: 1 - (1-t)^3
                 val easedProgress = 1f - (1f - progress).let { it * it * it }
-                _rotationDegrees.value = startRotation + totalDelta * easedProgress
+                val currentRotation = startRotation + totalDelta * easedProgress
+                _rotationDegrees.value = currentRotation
+
+                // 计算当前指针所指的选项索引，变化时播放 tick 音效
+                if (soundEnabled) {
+                    val normalizedAngle = ((currentRotation - 90f) % 360f + 360f) % 360f
+                    var accumulated = 0f
+                    var currentSectorIndex = 0
+                    for ((i, sectorAngle) in sectorAngles.withIndex()) {
+                        accumulated += sectorAngle
+                        if (normalizedAngle < accumulated) {
+                            currentSectorIndex = i
+                            break
+                        }
+                    }
+                    val now = System.currentTimeMillis()
+                    if (currentSectorIndex != lastTickSectorIndex && now - lastTickTime >= minTickInterval) {
+                        lastTickSectorIndex = currentSectorIndex
+                        lastTickTime = now
+                        // 根据进度计算音量曲线：渐入(0~10%)→稳定(10~70%)→渐出(70~100%)
+                        val tickVolume = when {
+                            progress < 0.1f -> 0.15f + 0.15f * (progress / 0.1f)
+                            progress < 0.7f -> 0.3f
+                            else -> 0.3f * (1f - (progress - 0.7f) / 0.3f) * 0.5f + 0.1f
+                        }
+                        soundManager.playTickSound(tickVolume)
+                    }
+                }
 
                 kotlinx.coroutines.delay(16)
             }
@@ -297,6 +331,12 @@ class HomeViewModel(
             var drawnIds = _uiState.value.drawnOptionIds
             val settings = _uiState.value.settings
             val spinDurationMs = settings.spinDurationMs.toLong().coerceAtLeast(1L)
+            val soundEnabled = settings.soundEnabled
+
+            // 计算每个选项的角度宽度，用于 tick 音效同步
+            val totalWeight = config.options.sumOf { it.weight }.coerceAtLeast(1)
+            val sectorAngles = config.options.map { 360f * it.weight / totalWeight }
+            val minTickInterval = 50L
 
             repeat(times) { index ->
                 // 单轮旋转动画
@@ -308,13 +348,42 @@ class HomeViewModel(
                 val totalDelta = targetRotation - startRotation
                 val startTime = System.currentTimeMillis()
                 var maxIterations = 10000
+                var lastTickSectorIndex = -1
+                var lastTickTime = 0L
 
                 while (maxIterations-- > 0) {
                     val elapsed = System.currentTimeMillis() - startTime
                     if (elapsed >= spinDurationMs || elapsed < 0) break
                     val progress = elapsed.toFloat() / spinDurationMs
                     val easedProgress = 1f - (1f - progress).let { it * it * it }
-                    _rotationDegrees.value = startRotation + totalDelta * easedProgress
+                    val currentRotation = startRotation + totalDelta * easedProgress
+                    _rotationDegrees.value = currentRotation
+
+                    // tick 音效同步
+                    if (soundEnabled) {
+                        val normalizedAngle = ((currentRotation - 90f) % 360f + 360f) % 360f
+                        var accumulated = 0f
+                        var currentSectorIndex = 0
+                        for ((i, sectorAngle) in sectorAngles.withIndex()) {
+                            accumulated += sectorAngle
+                            if (normalizedAngle < accumulated) {
+                                currentSectorIndex = i
+                                break
+                            }
+                        }
+                        val now = System.currentTimeMillis()
+                        if (currentSectorIndex != lastTickSectorIndex && now - lastTickTime >= minTickInterval) {
+                            lastTickSectorIndex = currentSectorIndex
+                            lastTickTime = now
+                            val tickVolume = when {
+                                progress < 0.1f -> 0.15f + 0.15f * (progress / 0.1f)
+                                progress < 0.7f -> 0.3f
+                                else -> 0.3f * (1f - (progress - 0.7f) / 0.3f) * 0.5f + 0.1f
+                            }
+                            soundManager.playTickSound(tickVolume)
+                        }
+                    }
+
                     kotlinx.coroutines.delay(16)
                 }
                 _rotationDegrees.value = targetRotation
@@ -398,13 +467,48 @@ class HomeViewModel(
             val shortDuration = 600L.coerceAtLeast(1L)
             val startTime = System.currentTimeMillis()
             var maxIterations = 10000
+            val soundEnabled = _uiState.value.settings.soundEnabled
+
+            // 计算每个选项的角度宽度，用于 tick 音效同步
+            val totalWeight = config.options.sumOf { it.weight }.coerceAtLeast(1)
+            val sectorAngles = config.options.map { 360f * it.weight / totalWeight }
+            var lastTickSectorIndex = -1
+            var lastTickTime = 0L
+            val minTickInterval = 50L
 
             while (maxIterations-- > 0) {
                 val elapsed = System.currentTimeMillis() - startTime
                 if (elapsed >= shortDuration || elapsed < 0) break
                 val progress = elapsed.toFloat() / shortDuration
                 val easedProgress = 1f - (1f - progress).let { it * it * it }
-                _rotationDegrees.value = startRotation + totalDelta * easedProgress
+                val currentRotation = startRotation + totalDelta * easedProgress
+                _rotationDegrees.value = currentRotation
+
+                // tick 音效同步
+                if (soundEnabled) {
+                    val normalizedAngle = ((currentRotation - 90f) % 360f + 360f) % 360f
+                    var accumulated = 0f
+                    var currentSectorIndex = 0
+                    for ((i, sectorAngle) in sectorAngles.withIndex()) {
+                        accumulated += sectorAngle
+                        if (normalizedAngle < accumulated) {
+                            currentSectorIndex = i
+                            break
+                        }
+                    }
+                    val now = System.currentTimeMillis()
+                    if (currentSectorIndex != lastTickSectorIndex && now - lastTickTime >= minTickInterval) {
+                        lastTickSectorIndex = currentSectorIndex
+                        lastTickTime = now
+                        val tickVolume = when {
+                            progress < 0.1f -> 0.15f + 0.15f * (progress / 0.1f)
+                            progress < 0.7f -> 0.3f
+                            else -> 0.3f * (1f - (progress - 0.7f) / 0.3f) * 0.5f + 0.1f
+                        }
+                        soundManager.playTickSound(tickVolume)
+                    }
+                }
+
                 kotlinx.coroutines.delay(16)
             }
             _rotationDegrees.value = targetRotation

@@ -15,6 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.zhuanpan.ZhuanpanApplication
 import com.example.zhuanpan.ui.batch_edit.BatchEditScreen
+import com.example.zhuanpan.ui.create_wheel.CreateWheelScreen
 import com.example.zhuanpan.ui.edit.EditScreen
 import com.example.zhuanpan.ui.edit.EditViewModel
 import com.example.zhuanpan.ui.history.HistoryScreen
@@ -82,20 +83,26 @@ fun ZhuanpanNavHost(
                 },
                 onNavigateToHistory = {
                     navController.navigate(Screen.History.route)
+                },
+                onNavigateToCreateWheel = {
+                    navController.navigate(Screen.CreateWheel.route)
                 }
             )
         }
 
         composable(route = Screen.WheelList.route) {
-            WheelListScreen(
-                onBack = {
-                    navController.popBackStack()
-                },
-                onNavigateToEdit = {
-                    navController.navigate(Screen.Edit.route)
-                }
-            )
-        }
+                WheelListScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToEdit = {
+                        navController.navigate(Screen.Edit.route)
+                    },
+                    onNavigateToCreateWheel = {
+                        navController.navigate(Screen.CreateWheel.route)
+                    }
+                )
+            }
 
         composable(route = Screen.History.route) {
             HistoryScreen(
@@ -118,12 +125,23 @@ fun ZhuanpanNavHost(
         }
 
         composable(route = Screen.BatchEdit.route) {
-            BatchEditScreen(
-                onBack = {
-                    navController.popBackStack()
-                },
-                viewModel = editViewModel
-            )
-        }
+                BatchEditScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    viewModel = editViewModel
+                )
+            }
+
+            composable(route = Screen.CreateWheel.route) {
+                CreateWheelScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToEdit = {
+                        navController.navigate(Screen.Edit.route)
+                    }
+                )
+            }
     }
 }

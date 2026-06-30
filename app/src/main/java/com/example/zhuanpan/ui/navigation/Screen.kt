@@ -11,4 +11,5 @@ sealed class Screen(val route: String) {
     data object WheelList : Screen("wheel_list")
     data object History : Screen("history")
     data object BatchEdit : Screen("batch_edit")
+    data object CreateWheel : Screen("create_wheel")
 }

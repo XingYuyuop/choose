@@ -69,6 +69,7 @@ import com.example.zhuanpan.ui.theme.PrimaryRed
 fun WheelListScreen(
     onBack: () -> Unit,
     onNavigateToEdit: () -> Unit,
+    onNavigateToCreateWheel: () -> Unit = {},
     viewModel: WheelListViewModel = viewModel(
         factory = WheelListViewModel.provideFactory(
             wheelRepository = (LocalContext.current.applicationContext as ZhuanpanApplication).wheelRepository
@@ -115,8 +116,7 @@ fun WheelListScreen(
                 actions = {
                     IconButton(
                         onClick = {
-                            // 新建一个空转盘并进入编辑页
-                            viewModel.addAndEditWheel(onCreated = { onNavigateToEdit() })
+                            onNavigateToCreateWheel()
                         }
                     ) {
                         Icon(

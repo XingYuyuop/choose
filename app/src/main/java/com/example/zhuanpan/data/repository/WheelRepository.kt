@@ -32,6 +32,14 @@ interface WheelRepository {
     suspend fun createWheel(): String
 
     /**
+     * 使用指定选项创建一个新转盘并选中它，返回新转盘 ID。
+     *
+     * @param title 转盘标题
+     * @param options 转盘选项列表
+     */
+    suspend fun createWheel(title: String, options: List<com.example.zhuanpan.data.model.WheelOption>): String
+
+    /**
      * 选中指定转盘作为当前转盘。
      */
     suspend fun selectWheel(id: String)

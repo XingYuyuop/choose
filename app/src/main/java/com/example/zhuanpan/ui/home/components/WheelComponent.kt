@@ -3,10 +3,14 @@ package com.example.zhuanpan.ui.home.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -14,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -25,22 +30,30 @@ import androidx.compose.ui.unit.sp
 import com.example.zhuanpan.data.model.ColorScheme
 import com.example.zhuanpan.data.model.WheelOption
 import com.example.zhuanpan.ui.theme.ColorWhite
-import com.example.zhuanpan.ui.theme.PrimaryRed
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
 /**
+ * 预计算的扇区颜色信息，避免每帧重复解析。
+ */
+private data class SectorColors(
+    val bgColor: Color,
+    val textColor: Color
+)
+
+/**
  * 转盘组件。
  *
- * 使用 Canvas 绘制扇形、文字与中心圆，支持根据旋转角度重绘。
- * 支持手动拖拽旋转：用户手指在转盘上滑动时，转盘跟随手势平滑旋转。
- * 点击中心圆圈区域可触发自动旋转。
+ * 使用 Canvas 绘制扇形和文字，通过 graphicsLayer.rotationZ 实现旋转。
+ * 旋转时 Canvas 内容不重绘，仅由 GPU 执行矩阵变换，确保动画流畅。
+ * 中心圆圈和箭头始终固定在12点钟方向，不随转盘旋转。
  *
  * @param options 转盘选项列表
  * @param rotationDegrees 当前旋转角度
  * @param colorSchemeName 配色方案名称
+ * @param highlightLabel 高亮选项标签
  * @param onManualRotation 手动旋转增量回调（单位：度）
  * @param onCenterClick 点击中心圆圈回调
  * @param modifier 修饰符
@@ -60,134 +73,150 @@ fun WheelComponent(
     val colors = colorScheme.toComposeColors()
     val density = LocalDensity.current.density
 
-    Canvas(
+    // 预计算每个选项的颜色，避免每帧在 draw scope 中重复解析 hex 颜色
+    val sectorColors = remember(options, colorSchemeName) {
+        options.mapIndexed { index, option ->
+            val bgColor = option.colorHex?.let { parseHexColor(it) }
+                ?: colors.getOrElse(index % colors.size) { Color.Gray }
+            val textColor = if (isDarkColor(bgColor)) Color.White else Color(0xFF555555)
+            SectorColors(bgColor, textColor)
+        }
+    }
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
             .padding(4.dp)
-            // 拖拽旋转手势
-            .pointerInput(Unit) {
-                val center = Offset(size.width / 2f, size.height / 2f)
-                var previousAngle: Float? = null
-
-                detectDragGestures(
-                    onDragStart = { previousAngle = null },
-                    onDragEnd = { previousAngle = null },
-                    onDragCancel = { previousAngle = null },
-                    onDrag = { change, _ ->
-                        val currentAngle = atan2(
-                            change.position.y - center.y,
-                            change.position.x - center.x
-                        )
-                        previousAngle?.let { prev ->
-                            var delta = Math.toDegrees(
-                                (currentAngle - prev).toDouble()
-                            ).toFloat()
-                            // 处理角度跨越 ±180° 的边界情况
-                            if (delta > 180f) delta -= 360f
-                            if (delta < -180f) delta += 360f
-                            onManualRotation(delta)
-                        }
-                        previousAngle = currentAngle
-                        change.consume()
-                    }
-                )
-            }
-            // 点击中心圆圈触发旋转
-            .pointerInput(Unit) {
-                val center = Offset(size.width / 2f, size.height / 2f)
-                val radius = minOf(size.width, size.height) / 2f
-                val centerCircleRadius = radius * 0.14f
-
-                detectTapGestures(
-                    onTap = { tapPosition ->
-                        val dx = tapPosition.x - center.x
-                        val dy = tapPosition.y - center.y
-                        val distanceSquared = dx * dx + dy * dy
-                        val clickRadius = centerCircleRadius * 2f
-                        if (distanceSquared <= clickRadius * clickRadius) {
-                            onCenterClick()
-                        }
-                    }
-                )
-            }
     ) {
-        val radius = size.minDimension / 2
-        val center = Offset(size.width / 2, size.height / 2)
+        // 旋转层：扇形 + 文字标签，通过 graphicsLayer 旋转（GPU 变换，无需重绘）
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    rotationZ = rotationDegrees
+                }
+        ) {
+            val radius = size.minDimension / 2
+            val center = Offset(size.width / 2, size.height / 2)
 
-        drawWheelSectors(
-            options = options,
-            colors = colors,
-            rotationDegrees = rotationDegrees,
-            highlightLabel = highlightLabel,
-            radius = radius,
-            center = center
-        )
+            drawWheelSectors(
+                options = options,
+                sectorColors = sectorColors,
+                highlightLabel = highlightLabel,
+                radius = radius,
+                center = center
+            )
 
-        drawWheelLabels(
-            options = options,
-            colors = colors,
-            rotationDegrees = rotationDegrees,
-            highlightLabel = highlightLabel,
-            radius = radius,
-            center = center,
-            textMeasurer = textMeasurer,
-            density = density
-        )
+            drawWheelLabels(
+                options = options,
+                sectorColors = sectorColors,
+                highlightLabel = highlightLabel,
+                radius = radius,
+                center = center,
+                textMeasurer = textMeasurer,
+                density = density
+            )
+        }
 
-        // 中心白色圆圈
-        drawCircle(
-            color = ColorWhite,
-            radius = radius * 0.14f,
-            center = center
-        )
+        // 固定层：中心圆圈 + 箭头 + 手势（不随转盘旋转）
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                // 拖拽旋转手势
+                .pointerInput(Unit) {
+                    val center = Offset(size.width / 2f, size.height / 2f)
+                    var previousAngle: Float? = null
 
-        // 中心圆圈上方的固定箭头指示标记（指向12点钟方向，作为结果判定基准线）
-        drawFixedArrow(center = center, radius = radius)
+                    detectDragGestures(
+                        onDragStart = { previousAngle = null },
+                        onDragEnd = { previousAngle = null },
+                        onDragCancel = { previousAngle = null },
+                        onDrag = { change, _ ->
+                            val currentAngle = atan2(
+                                change.position.y - center.y,
+                                change.position.x - center.x
+                            )
+                            previousAngle?.let { prev ->
+                                var delta = Math.toDegrees(
+                                    (currentAngle - prev).toDouble()
+                                ).toFloat()
+                                if (delta > 180f) delta -= 360f
+                                if (delta < -180f) delta += 360f
+                                onManualRotation(delta)
+                            }
+                            previousAngle = currentAngle
+                            change.consume()
+                        }
+                    )
+                }
+                // 点击中心圆圈触发旋转
+                .pointerInput(Unit) {
+                    val center = Offset(size.width / 2f, size.height / 2f)
+                    val radius = minOf(size.width, size.height) / 2f
+                    val centerCircleRadius = radius * 0.14f
+
+                    detectTapGestures(
+                        onTap = { tapPosition ->
+                            val dx = tapPosition.x - center.x
+                            val dy = tapPosition.y - center.y
+                            val distanceSquared = dx * dx + dy * dy
+                            val clickRadius = centerCircleRadius * 2f
+                            if (distanceSquared <= clickRadius * clickRadius) {
+                                onCenterClick()
+                            }
+                        }
+                    )
+                }
+        ) {
+            val radius = size.minDimension / 2
+            val center = Offset(size.width / 2, size.height / 2)
+
+            // 中心白色圆圈
+            drawCircle(
+                color = ColorWhite,
+                radius = radius * 0.14f,
+                center = center
+            )
+
+            // 固定箭头
+            drawFixedArrow(center = center, radius = radius)
+        }
     }
 }
 
 /**
  * 绘制中心圆圈上方的固定箭头标记。
  *
- * 箭头固定指向12点钟方向，作为转盘结果的判定基准线，
- * 无论转盘如何旋转，箭头始终指向同一个位置。
+ * 箭头固定指向12点钟方向，作为转盘结果的判定基准线。
  */
 private fun DrawScope.drawFixedArrow(center: Offset, radius: Float) {
     val arrowHeight = radius * 0.12f
     val arrowWidth = radius * 0.10f
-    
-    // 箭头位置：中心圆圈上方，尖头指向下方（12点钟方向）
-    val arrowBaseY = center.y - radius * 0.14f
+
+    val centerCircleRadius = radius * 0.14f
+    val arrowBaseY = center.y - centerCircleRadius
     val arrowTipY = arrowBaseY - arrowHeight
-    
+
     val arrowPath = Path().apply {
         moveTo(center.x, arrowTipY)
         lineTo(center.x - arrowWidth / 2, arrowBaseY)
         lineTo(center.x + arrowWidth / 2, arrowBaseY)
         close()
     }
-    
-    // 箭头阴影（增加立体感）
-    val shadowPath = Path().apply {
-        moveTo(center.x, arrowTipY + 2f)
-        lineTo(center.x - arrowWidth / 2, arrowBaseY + 2f)
-        lineTo(center.x + arrowWidth / 2, arrowBaseY + 2f)
-        close()
-    }
-    drawPath(path = shadowPath, color = Color.Black.copy(alpha = 0.2f))
-    
-    // 箭头主体
-    drawPath(path = arrowPath, color = PrimaryRed)
+
+    drawPath(path = arrowPath, color = Color.White)
 }
 
 /**
  * 绘制转盘扇形。
+ *
+ * 使用 graphicsLayer 旋转后，startAngle 直接从 -90° 开始（12 点钟方向），
+ * 不再需要加上 rotationDegrees。
  */
 private fun DrawScope.drawWheelSectors(
     options: List<WheelOption>,
-    colors: List<Color>,
-    rotationDegrees: Float,
+    sectorColors: List<SectorColors>,
     highlightLabel: String?,
     radius: Float,
     center: Offset
@@ -195,16 +224,13 @@ private fun DrawScope.drawWheelSectors(
     if (options.isEmpty()) return
 
     val totalWeight = options.sumOf { it.weight }.coerceAtLeast(1)
-    // Canvas drawArc 的 0° 在 3 点钟方向，减去 90° 使其从 12 点钟方向开始
-    var startAngle = rotationDegrees - 90f
+    var startAngle = -90f
     val hasHighlight = !highlightLabel.isNullOrBlank()
 
     options.forEachIndexed { index, option ->
         val sweep = 360f * option.weight / totalWeight
-        val color = option.colorHex?.let { parseHexColor(it) }
-            ?: colors.getOrElse(index % colors.size) { colors.firstOrNull() ?: Color.Gray }
+        val color = sectorColors.getOrElse(index) { SectorColors(Color.Gray, Color.White) }.bgColor
 
-        // 高亮逻辑：选中选项保持原色，其余选项降低亮度
         val finalColor = if (hasHighlight) {
             if (option.label == highlightLabel) color else color.copy(alpha = 0.35f)
         } else {
@@ -227,13 +253,12 @@ private fun DrawScope.drawWheelSectors(
 /**
  * 绘制转盘标签文字。
  *
- * 每个字符沿扇形径向排列并单独旋转，使其始终处于"竖排可读"状态，
- * 同时根据扇形大小和屏幕尺寸动态计算字号，确保文字完整显示在转盘内部。
+ * 使用 graphicsLayer 旋转后，角度从 -90° 开始，不再需要加上 rotationDegrees。
+ * 文字颜色使用预计算的 sectorColors，避免每帧重复解析 hex 颜色。
  */
 private fun DrawScope.drawWheelLabels(
     options: List<WheelOption>,
-    colors: List<Color>,
-    rotationDegrees: Float,
+    sectorColors: List<SectorColors>,
     highlightLabel: String?,
     radius: Float,
     center: Offset,
@@ -243,8 +268,8 @@ private fun DrawScope.drawWheelLabels(
     if (options.isEmpty()) return
 
     val totalWeight = options.sumOf { it.weight }.coerceAtLeast(1)
-    var currentAngle = rotationDegrees - 90f
-    val safeMarginPx = 8f * density
+    var currentAngle = -90f
+    val safeMarginPx = 6f * density
     val centerCircleRadius = radius * 0.16f
     val radialSpace = radius - centerCircleRadius - safeMarginPx * 2
     val hasHighlight = !highlightLabel.isNullOrBlank()
@@ -253,27 +278,29 @@ private fun DrawScope.drawWheelLabels(
         val sweep = 360f * option.weight / totalWeight
         val sectorCenterAngle = currentAngle + sweep / 2
 
-        // 根据背景色亮度选择文字颜色
-        val bgColor = option.colorHex?.let { parseHexColor(it) }
-            ?: colors.getOrElse(index % colors.size) { colors.firstOrNull() ?: Color.Gray }
-        val baseTextColor = if (isDarkColor(bgColor)) Color.White else Color(0xFF666666)
+        val colors = sectorColors.getOrElse(index) { SectorColors(Color.Gray, Color.White) }
+        val baseTextColor = colors.textColor
 
-        // 高亮逻辑：选中选项文字保持原色，其余选项文字降低透明度
         val textColor = if (hasHighlight) {
             if (option.label == highlightLabel) baseTextColor else baseTextColor.copy(alpha = 0.35f)
         } else {
             baseTextColor
         }
 
-        // 计算扇形在文字半径处的弦长，作为字符宽度的上限
         val labelRadius = radius * 0.62f
         val halfSweepRad = Math.toRadians((sweep / 2).toDouble().coerceAtMost(90.0))
-        val chordLength = 2 * labelRadius * sin(halfSweepRad).toFloat()
+        val arcLength = 2 * labelRadius * sin(halfSweepRad).toFloat()
 
-        // 最大单字尺寸：受弦长、径向空间和全局上限共同约束
-        val maxByChord = (chordLength - safeMarginPx * 2).coerceAtLeast(12f * density)
-        val maxByRadial = radialSpace * 0.35f
-        val maxCharSize = min(maxByChord, maxByRadial).coerceAtMost(radius * 0.14f)
+        val minCharSizePx = 8f * density
+        val maxByChord = (arcLength - safeMarginPx * 2).coerceAtLeast(minCharSizePx)
+        val maxByRadial = radialSpace * 0.3f
+        val maxByOptions = when {
+            options.size <= 4 -> radius * 0.12f
+            options.size <= 8 -> radius * 0.10f
+            options.size <= 12 -> radius * 0.08f
+            else -> radius * 0.065f
+        }
+        val maxCharSize = min(min(maxByChord / 2f, maxByRadial), maxByOptions)
 
         drawVerticalLabel(
             label = option.label,
@@ -292,11 +319,12 @@ private fun DrawScope.drawWheelLabels(
 }
 
 /**
- * 在指定角度位置绘制竖排标签。
+ * 在指定角度位置绘制标签。
  *
- * 字符沿径向从外向内排列，每个字符单独旋转以保持可读方向。
- * 当标签超过4个字符时，自动分两列排列以节省径向空间。
- * 会根据总高度自动缩放字号，确保文字不超出转盘边界和中心圆。
+ * 放射状排列规则：
+ * - 沿半径分布：文字顺着从转盘边缘指向圆心的半径方向排列
+ * - 从外向内读：阅读顺序是从转盘最外侧边缘起头，向中间白色圆环方向延伸
+ * - 多行折行：文字较长时沿半径方向折成多行，整体保持从外到内的线性布局
  */
 private fun DrawScope.drawVerticalLabel(
     label: String,
@@ -309,15 +337,14 @@ private fun DrawScope.drawVerticalLabel(
     radialSpace: Float,
     density: Float
 ) {
-    val displayText = label.take(8) // 限制最大显示字符数，超出部分省略
-    val minCharSizePx = 12f * density
-    val maxCharSizePx = 22f * density
+    val minCharSizePx = 8f * density
+    val maxCharSizePx = 14f * density
+    val displayText = label.take(8)
 
-    // 超过4个字符时，分两列排列
     val splitIndex = if (displayText.length > 4) {
-        (displayText.length + 1) / 2 // 第一列多一个字符（奇数时）
+        (displayText.length + 1) / 2
     } else {
-        displayText.length // 不分行
+        displayText.length
     }
 
     val col1 = displayText.take(splitIndex)
@@ -331,8 +358,8 @@ private fun DrawScope.drawVerticalLabel(
         col1.length * idealCharSize
     }
 
-    val scaleFactor = if (columnHeight > radialSpace * 0.9f) {
-        radialSpace * 0.9f / columnHeight
+    val scaleFactor = if (columnHeight > radialSpace * 0.85f) {
+        radialSpace * 0.85f / columnHeight
     } else 1f
 
     val charSize = (idealCharSize * scaleFactor).coerceAtLeast(minCharSizePx)
@@ -346,60 +373,45 @@ private fun DrawScope.drawVerticalLabel(
     val cosAngle = cos(angleRad).toFloat()
     val sinAngle = sin(angleRad).toFloat()
 
-    // 垂直于径向的偏移方向（用于多列时横向排列）
     val perpCos = cos(Math.toRadians((centerAngle + 90f).toDouble())).toFloat()
     val perpSin = sin(Math.toRadians((centerAngle + 90f).toDouble())).toFloat()
 
-    // 计算每列的径向总高度
     val col1Height = col1.length * charSize
     val col2Height = col2.length * charSize
     val totalHeight = if (isMultiColumn) maxOf(col1Height, col2Height) else col1Height
 
-    // 列偏移（沿垂直于径向方向）：第一列偏左，第二列偏右
-    val columnSpacing = charSize * 0.85f
+    val columnSpacing = charSize * 0.9f
     val col1Offset = if (isMultiColumn) -columnSpacing / 2f else 0f
     val col2Offset = if (isMultiColumn) columnSpacing / 2f else 0f
 
-    // 绘制第一列
-    col1.forEachIndexed { charIndex, char ->
-        val distance = labelRadius + totalHeight / 2 - charIndex * charSize - charSize / 2
-        val baseX = center.x + distance * cosAngle
-        val baseY = center.y + distance * sinAngle
-        val charCenterX = baseX + col1Offset * perpCos
-        val charCenterY = baseY + col1Offset * perpSin
+    val rotationDeg = centerAngle + 90f
 
-        rotate(degrees = centerAngle + 90f, pivot = Offset(charCenterX, charCenterY)) {
-            drawText(
-                textMeasurer = textMeasurer,
-                text = char.toString(),
-                topLeft = Offset(
-                    x = charCenterX - charSize / 2,
-                    y = charCenterY - charSize / 2
-                ),
-                style = textStyle
-            )
+    fun drawColumn(chars: CharSequence, columnOffset: Float) {
+        chars.forEachIndexed { charIndex, char ->
+            val distance = labelRadius + totalHeight / 2 - charIndex * charSize - charSize / 2
+
+            val baseX = center.x + distance * cosAngle
+            val baseY = center.y + distance * sinAngle
+            val charCenterX = baseX + columnOffset * perpCos
+            val charCenterY = baseY + columnOffset * perpSin
+
+            rotate(degrees = rotationDeg, pivot = Offset(charCenterX, charCenterY)) {
+                drawText(
+                    textMeasurer = textMeasurer,
+                    text = char.toString(),
+                    topLeft = Offset(
+                        x = charCenterX - charSize / 2,
+                        y = charCenterY - charSize / 2
+                    ),
+                    style = textStyle
+                )
+            }
         }
     }
 
-    // 绘制第二列
-    col2.forEachIndexed { charIndex, char ->
-        val distance = labelRadius + totalHeight / 2 - charIndex * charSize - charSize / 2
-        val baseX = center.x + distance * cosAngle
-        val baseY = center.y + distance * sinAngle
-        val charCenterX = baseX + col2Offset * perpCos
-        val charCenterY = baseY + col2Offset * perpSin
-
-        rotate(degrees = centerAngle + 90f, pivot = Offset(charCenterX, charCenterY)) {
-            drawText(
-                textMeasurer = textMeasurer,
-                text = char.toString(),
-                topLeft = Offset(
-                    x = charCenterX - charSize / 2,
-                    y = charCenterY - charSize / 2
-                ),
-                style = textStyle
-            )
-        }
+    drawColumn(col1, col1Offset)
+    if (isMultiColumn) {
+        drawColumn(col2, col2Offset)
     }
 }
 
