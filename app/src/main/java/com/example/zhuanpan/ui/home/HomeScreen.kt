@@ -105,7 +105,8 @@ fun HomeScreen(
         factory = HomeViewModel.provideFactory(
             wheelRepository = (LocalContext.current.applicationContext as ZhuanpanApplication).wheelRepository,
             settingsRepository = (LocalContext.current.applicationContext as ZhuanpanApplication).settingsRepository,
-            historyRepository = (LocalContext.current.applicationContext as ZhuanpanApplication).historyRepository
+            historyRepository = (LocalContext.current.applicationContext as ZhuanpanApplication).historyRepository,
+            soundManager = (LocalContext.current.applicationContext as ZhuanpanApplication).soundManager
         )
     )
 ) {
@@ -241,6 +242,7 @@ fun HomeScreen(
                     showMoreMenu = uiState.showMoreMenu,
                     rotationDegrees = rotationDegrees,
                     realtimeResult = realtimeResult,
+                    currentResult = uiState.currentResult,
                     multiSpinTotal = uiState.multiSpinTotal,
                     multiSpinCurrent = uiState.multiSpinCurrent,
                     onSettingsClick = { viewModel.onSettingsVisibilityChanged(!uiState.showSettings) },
@@ -281,6 +283,7 @@ private fun HomeContent(
     showMoreMenu: Boolean,
     rotationDegrees: Float,
     realtimeResult: String,
+    currentResult: String,
     multiSpinTotal: Int,
     multiSpinCurrent: Int,
     onSettingsClick: () -> Unit,
@@ -322,16 +325,23 @@ private fun HomeContent(
             onClick = onWheelListClick
         )
 
-        // 实时结果显示区域（在轮盘名称正下方，动态显示指针所指选项）
-        if (realtimeResult.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = realtimeResult,
-                fontSize = settings.resultFontSizeSp.sp,
-                fontWeight = FontWeight.Bold,
-                color = OnSurface,
-                textAlign = TextAlign.Center
-            )
+        // 实时结果显示区域（固定高度，避免行数变化导致转盘位置跳动）
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (realtimeResult.isNotEmpty()) {
+                Text(
+                    text = realtimeResult,
+                    fontSize = settings.resultFontSizeSp.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = OnSurface,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -353,6 +363,7 @@ private fun HomeContent(
                     options = config.options,
                     rotationDegrees = rotationDegrees,
                     colorSchemeName = settings.colorSchemeName,
+                    highlightLabel = if (!isSpinning) currentResult else null,
                     onManualRotation = onManualRotation,
                     onCenterClick = onSpinClick,
                     modifier = Modifier.fillMaxWidth(settings.wheelSize)
@@ -515,7 +526,7 @@ private fun TitleButton(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.List,
             contentDescription = "所有列表",
-            tint = PrimaryRed,
+            tint = Color.Black,
             modifier = Modifier.size(18.dp)
         )
         Spacer(modifier = Modifier.width(6.dp))
@@ -554,11 +565,12 @@ private fun HomeBottomControls(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 左侧设置按钮，点击打开设置面板
+            // 左侧设置按钮，点击打开设置面板，旋转时禁用
             ControlIconButton(
                 icon = Icons.Default.Settings,
                 contentDescription = "设置",
-                onClick = onSettingsClick
+                onClick = onSettingsClick,
+                enabled = !isSpinning
             )
 
             // 中间旋转按钮：无选项时禁用
@@ -573,11 +585,12 @@ private fun HomeBottomControls(
                 onClick = onSpinClick
             )
 
-            // 右侧编辑选项按钮
+            // 右侧编辑选项按钮，旋转时禁用
             ControlIconButton(
                 icon = Icons.Default.Edit,
                 contentDescription = "编辑选项",
-                onClick = onEditClick
+                onClick = onEditClick,
+                enabled = !isSpinning
             )
         }
 
@@ -604,6 +617,7 @@ private fun ControlIconButton(
     icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
+    enabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -613,14 +627,21 @@ private fun ControlIconButton(
         modifier = modifier
             .size(48.dp)
             .shadow(
-                elevation = if (isPressed) 1.dp else 2.dp,
+                elevation = if (isPressed && enabled) 1.dp else 2.dp,
                 shape = CircleShape
             )
             .clip(CircleShape)
-            .background(if (isPressed) Background else ColorWhite)
+            .background(
+                when {
+                    !enabled -> Background
+                    isPressed -> Background
+                    else -> ColorWhite
+                }
+            )
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
+                enabled = enabled,
                 onClick = onClick
             ),
         contentAlignment = Alignment.Center
@@ -628,7 +649,11 @@ private fun ControlIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = if (isPressed) PrimaryRed else OnSurfaceVariant,
+            tint = when {
+                !enabled -> OnSurfaceVariant.copy(alpha = 0.3f)
+                isPressed -> PrimaryRed
+                else -> OnSurfaceVariant
+            },
             modifier = Modifier.size(24.dp)
         )
     }
@@ -1110,7 +1135,9 @@ private fun MultiSpinResultsDialog(
                                     text = name.ifBlank { "—" },
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = OnSurface
+                                    color = OnSurface,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 2
                                 )
                                 if (count > 1) {
                                     Text(

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
@@ -103,6 +104,16 @@ fun SettingsBottomSheet(
                 title = "允许重复抽取",
                 checked = settings.allowRepeat,
                 onCheckedChange = { viewModel.onAllowRepeatChanged(it) }
+            )
+
+            HorizontalDivider(color = Divider, thickness = 0.5.dp)
+
+            // 声音开关
+            SettingsToggleItem(
+                icon = Icons.AutoMirrored.Filled.VolumeUp,
+                title = "旋转音效",
+                checked = settings.soundEnabled,
+                onCheckedChange = { viewModel.onSoundEnabledChanged(it) }
             )
 
             HorizontalDivider(color = Divider, thickness = 0.5.dp)

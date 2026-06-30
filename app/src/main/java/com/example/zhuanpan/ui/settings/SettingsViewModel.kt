@@ -80,6 +80,13 @@ class SettingsViewModel(
         }
     }
 
+    /**
+     * 切换旋转音效开关。
+     */
+    fun onSoundEnabledChanged(enabled: Boolean) {
+        updateSettings { it.copy(soundEnabled = enabled) }
+    }
+
     private fun updateSettings(transform: (AppSettings) -> AppSettings) {
         viewModelScope.launch {
             settingsRepository.updateSettings(transform)

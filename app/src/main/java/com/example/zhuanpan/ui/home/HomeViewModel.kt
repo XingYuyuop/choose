@@ -35,7 +35,8 @@ import kotlin.random.Random
 class HomeViewModel(
     private val wheelRepository: WheelRepository,
     private val settingsRepository: SettingsRepository,
-    private val historyRepository: HistoryRepository
+    private val historyRepository: HistoryRepository,
+    private val soundManager: com.example.zhuanpan.utils.SoundManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -128,6 +129,7 @@ class HomeViewModel(
 
         spinJob = viewModelScope.launch {
             onSpinStarted()
+            if (_uiState.value.settings.soundEnabled) soundManager.playSpinSound()
 
             val startRotation = _rotationDegrees.value
             val extraSpins = Random.nextInt(5, 10)
@@ -498,6 +500,9 @@ class HomeViewModel(
             )
         }
 
+        // 播放结果音效
+        if (settings.soundEnabled) soundManager.playResultSound()
+
         // 保存抽取历史
         winner?.let {
             viewModelScope.launch {
@@ -721,11 +726,12 @@ class HomeViewModel(
         fun provideFactory(
             wheelRepository: WheelRepository,
             settingsRepository: SettingsRepository,
-            historyRepository: HistoryRepository
+            historyRepository: HistoryRepository,
+            soundManager: com.example.zhuanpan.utils.SoundManager
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return HomeViewModel(wheelRepository, settingsRepository, historyRepository) as T
+                return HomeViewModel(wheelRepository, settingsRepository, historyRepository, soundManager) as T
             }
         }
     }

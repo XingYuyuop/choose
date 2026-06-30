@@ -12,6 +12,7 @@ import com.example.zhuanpan.data.repository.HistoryRepositoryImpl
 import com.example.zhuanpan.data.repository.SettingsRepository
 import com.example.zhuanpan.data.repository.SettingsRepositoryImpl
 import com.example.zhuanpan.data.repository.WheelRepository
+import com.example.zhuanpan.utils.SoundManager
 import com.example.zhuanpan.data.repository.WheelRepositoryImpl
 
 /**
@@ -40,5 +41,9 @@ class ZhuanpanApplication : Application() {
 
     val backupRestoreManager: BackupRestoreManager by lazy {
         BackupRestoreManager(zhuanpanDataStore)
+    }
+
+    val soundManager: SoundManager by lazy {
+        SoundManager(this)
     }
 }

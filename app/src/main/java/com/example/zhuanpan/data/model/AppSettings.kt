@@ -19,7 +19,8 @@ data class AppSettings(
     val colorSchemeName: String = ColorScheme.PASTEL.name,
     val resultFontSizeSp: Float = 28f,
     val hasSeenGuide: Boolean = false,
-    val wheelSize: Float = 0.78f
+    val wheelSize: Float = 0.78f,
+    val soundEnabled: Boolean = true
 ) {
     companion object {
         const val MIN_SPIN_DURATION_MS = 1000

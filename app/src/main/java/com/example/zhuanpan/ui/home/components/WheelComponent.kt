@@ -50,6 +50,7 @@ fun WheelComponent(
     options: List<WheelOption>,
     rotationDegrees: Float,
     colorSchemeName: String,
+    highlightLabel: String? = null,
     onManualRotation: (Float) -> Unit = {},
     onCenterClick: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -118,6 +119,7 @@ fun WheelComponent(
             options = options,
             colors = colors,
             rotationDegrees = rotationDegrees,
+            highlightLabel = highlightLabel,
             radius = radius,
             center = center
         )
@@ -126,6 +128,7 @@ fun WheelComponent(
             options = options,
             colors = colors,
             rotationDegrees = rotationDegrees,
+            highlightLabel = highlightLabel,
             radius = radius,
             center = center,
             textMeasurer = textMeasurer,
@@ -185,6 +188,7 @@ private fun DrawScope.drawWheelSectors(
     options: List<WheelOption>,
     colors: List<Color>,
     rotationDegrees: Float,
+    highlightLabel: String?,
     radius: Float,
     center: Offset
 ) {
@@ -193,14 +197,22 @@ private fun DrawScope.drawWheelSectors(
     val totalWeight = options.sumOf { it.weight }.coerceAtLeast(1)
     // Canvas drawArc 的 0° 在 3 点钟方向，减去 90° 使其从 12 点钟方向开始
     var startAngle = rotationDegrees - 90f
+    val hasHighlight = !highlightLabel.isNullOrBlank()
 
     options.forEachIndexed { index, option ->
         val sweep = 360f * option.weight / totalWeight
         val color = option.colorHex?.let { parseHexColor(it) }
             ?: colors.getOrElse(index % colors.size) { colors.firstOrNull() ?: Color.Gray }
 
+        // 高亮逻辑：选中选项保持原色，其余选项降低亮度
+        val finalColor = if (hasHighlight) {
+            if (option.label == highlightLabel) color else color.copy(alpha = 0.35f)
+        } else {
+            color
+        }
+
         drawArc(
-            color = color,
+            color = finalColor,
             startAngle = startAngle,
             sweepAngle = sweep,
             useCenter = true,
@@ -222,6 +234,7 @@ private fun DrawScope.drawWheelLabels(
     options: List<WheelOption>,
     colors: List<Color>,
     rotationDegrees: Float,
+    highlightLabel: String?,
     radius: Float,
     center: Offset,
     textMeasurer: androidx.compose.ui.text.TextMeasurer,
@@ -234,6 +247,7 @@ private fun DrawScope.drawWheelLabels(
     val safeMarginPx = 8f * density
     val centerCircleRadius = radius * 0.16f
     val radialSpace = radius - centerCircleRadius - safeMarginPx * 2
+    val hasHighlight = !highlightLabel.isNullOrBlank()
 
     options.forEachIndexed { index, option ->
         val sweep = 360f * option.weight / totalWeight
@@ -242,7 +256,14 @@ private fun DrawScope.drawWheelLabels(
         // 根据背景色亮度选择文字颜色
         val bgColor = option.colorHex?.let { parseHexColor(it) }
             ?: colors.getOrElse(index % colors.size) { colors.firstOrNull() ?: Color.Gray }
-        val textColor = if (isDarkColor(bgColor)) Color.White else Color(0xFF666666)
+        val baseTextColor = if (isDarkColor(bgColor)) Color.White else Color(0xFF666666)
+
+        // 高亮逻辑：选中选项文字保持原色，其余选项文字降低透明度
+        val textColor = if (hasHighlight) {
+            if (option.label == highlightLabel) baseTextColor else baseTextColor.copy(alpha = 0.35f)
+        } else {
+            baseTextColor
+        }
 
         // 计算扇形在文字半径处的弦长，作为字符宽度的上限
         val labelRadius = radius * 0.62f
@@ -274,6 +295,7 @@ private fun DrawScope.drawWheelLabels(
  * 在指定角度位置绘制竖排标签。
  *
  * 字符沿径向从外向内排列，每个字符单独旋转以保持可读方向。
+ * 当标签超过4个字符时，自动分两列排列以节省径向空间。
  * 会根据总高度自动缩放字号，确保文字不超出转盘边界和中心圆。
  */
 private fun DrawScope.drawVerticalLabel(
@@ -287,21 +309,33 @@ private fun DrawScope.drawVerticalLabel(
     radialSpace: Float,
     density: Float
 ) {
-    val chars = label.take(8).toList() // 限制最大显示字符数，超出部分省略
+    val displayText = label.take(8) // 限制最大显示字符数，超出部分省略
     val minCharSizePx = 12f * density
     val maxCharSizePx = 22f * density
 
-    // 先按理想字号计算总高度
-    val idealCharSize = maxCharSize.coerceIn(minCharSizePx, maxCharSizePx)
-    val totalHeight = chars.size * idealCharSize
+    // 超过4个字符时，分两列排列
+    val splitIndex = if (displayText.length > 4) {
+        (displayText.length + 1) / 2 // 第一列多一个字符（奇数时）
+    } else {
+        displayText.length // 不分行
+    }
 
-    // 如果总高度超过径向空间，按高度等比缩小字号
-    val scaleFactor = if (totalHeight > radialSpace * 0.9f) {
-        radialSpace * 0.9f / totalHeight
+    val col1 = displayText.take(splitIndex)
+    val col2 = displayText.drop(splitIndex)
+    val isMultiColumn = col2.isNotEmpty()
+
+    val idealCharSize = maxCharSize.coerceIn(minCharSizePx, maxCharSizePx)
+    val columnHeight = if (isMultiColumn) {
+        maxOf(col1.length, col2.length) * idealCharSize
+    } else {
+        col1.length * idealCharSize
+    }
+
+    val scaleFactor = if (columnHeight > radialSpace * 0.9f) {
+        radialSpace * 0.9f / columnHeight
     } else 1f
 
     val charSize = (idealCharSize * scaleFactor).coerceAtLeast(minCharSizePx)
-    val scaledTotalHeight = chars.size * charSize
     val textStyle = TextStyle(
         color = textColor,
         fontSize = (charSize / density).sp,
@@ -312,13 +346,49 @@ private fun DrawScope.drawVerticalLabel(
     val cosAngle = cos(angleRad).toFloat()
     val sinAngle = sin(angleRad).toFloat()
 
-    chars.forEachIndexed { charIndex, char ->
-        // 从外向内排列：第一个字符在最外侧（距离中心最远）
-        val distance = labelRadius + scaledTotalHeight / 2 - charIndex * charSize - charSize / 2
-        val charCenterX = center.x + distance * cosAngle
-        val charCenterY = center.y + distance * sinAngle
+    // 垂直于径向的偏移方向（用于多列时横向排列）
+    val perpCos = cos(Math.toRadians((centerAngle + 90f).toDouble())).toFloat()
+    val perpSin = sin(Math.toRadians((centerAngle + 90f).toDouble())).toFloat()
 
-        // 旋转角度使字符保持可读：径向方向 + 90°
+    // 计算每列的径向总高度
+    val col1Height = col1.length * charSize
+    val col2Height = col2.length * charSize
+    val totalHeight = if (isMultiColumn) maxOf(col1Height, col2Height) else col1Height
+
+    // 列偏移（沿垂直于径向方向）：第一列偏左，第二列偏右
+    val columnSpacing = charSize * 0.85f
+    val col1Offset = if (isMultiColumn) -columnSpacing / 2f else 0f
+    val col2Offset = if (isMultiColumn) columnSpacing / 2f else 0f
+
+    // 绘制第一列
+    col1.forEachIndexed { charIndex, char ->
+        val distance = labelRadius + totalHeight / 2 - charIndex * charSize - charSize / 2
+        val baseX = center.x + distance * cosAngle
+        val baseY = center.y + distance * sinAngle
+        val charCenterX = baseX + col1Offset * perpCos
+        val charCenterY = baseY + col1Offset * perpSin
+
+        rotate(degrees = centerAngle + 90f, pivot = Offset(charCenterX, charCenterY)) {
+            drawText(
+                textMeasurer = textMeasurer,
+                text = char.toString(),
+                topLeft = Offset(
+                    x = charCenterX - charSize / 2,
+                    y = charCenterY - charSize / 2
+                ),
+                style = textStyle
+            )
+        }
+    }
+
+    // 绘制第二列
+    col2.forEachIndexed { charIndex, char ->
+        val distance = labelRadius + totalHeight / 2 - charIndex * charSize - charSize / 2
+        val baseX = center.x + distance * cosAngle
+        val baseY = center.y + distance * sinAngle
+        val charCenterX = baseX + col2Offset * perpCos
+        val charCenterY = baseY + col2Offset * perpSin
+
         rotate(degrees = centerAngle + 90f, pivot = Offset(charCenterX, charCenterY)) {
             drawText(
                 textMeasurer = textMeasurer,

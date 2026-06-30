@@ -104,7 +104,7 @@ fun RandomNumberScreen(modifier: Modifier = Modifier) {
                     color = OnSurface
                 )
             }
-            // 复制按钮
+            // 复制按钮（始终显示，无结果时不可点击）
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -126,14 +126,12 @@ fun RandomNumberScreen(modifier: Modifier = Modifier) {
                     },
                 contentAlignment = Alignment.Center
             ) {
-                if (results.isNotEmpty()) {
-                    Icon(
-                        imageVector = Icons.Default.ContentCopy,
-                        contentDescription = "复制结果",
-                        tint = OnSurfaceVariant,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = "复制结果",
+                    tint = if (results.isNotEmpty()) OnSurfaceVariant else OnSurfaceVariant.copy(alpha = 0.3f),
+                    modifier = Modifier.size(22.dp)
+                )
             }
         }
 
