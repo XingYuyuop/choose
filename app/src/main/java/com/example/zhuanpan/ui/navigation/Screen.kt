@@ -7,7 +7,7 @@ package com.example.zhuanpan.ui.navigation
  */
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
-    data object Edit : Screen("edit")
+    data object Edit : Screen("edit?isNew={isNew}")
     data object WheelList : Screen("wheel_list")
     data object History : Screen("history")
     data object BatchEdit : Screen("batch_edit")

@@ -18,6 +18,8 @@ import java.util.UUID
  * 编辑转盘页面 ViewModel。
  *
  * 在内存中维护一份可编辑的转盘配置副本，保存时才写入仓库。
+ * 同时支持编辑已有转盘（[reload]）与新建转盘（[startNewWheel]）两种模式，
+ * 供编辑页与批量编辑页共享同一份内存状态。
  *
  * @property wheelRepository 转盘配置仓库
  */
@@ -28,38 +30,53 @@ class EditViewModel(
     private val _uiState = MutableStateFlow(EditUiState())
     val uiState: StateFlow<EditUiState> = _uiState.asStateFlow()
 
-    init {
-        reload()
-    }
-
     /**
-     * 从仓库重新加载当前转盘配置。
+     * 从仓库重新加载当前转盘配置（编辑模式）。
      *
-     * 每次进入编辑页时调用，确保 ViewModel 内存状态与仓库中当前选中的转盘保持同步，
-     * 避免新建轮盘后仍展示旧轮盘的选项。
+     * 每次进入编辑页时调用，确保 ViewModel 内存状态与仓库中当前选中的转盘保持同步。
      */
     fun reload() {
         viewModelScope.launch {
             val config = wheelRepository.wheelConfig.first()
-            _uiState.value = EditUiState(config = config, originalConfig = config)
+            _uiState.value = EditUiState(
+                config = config,
+                originalConfig = config,
+                isNew = false
+            )
         }
     }
 
     /**
-     * 判断当前配置是否与原始配置有差异。
+     * 进入新建模式：使用空白草稿，保存时通过 createWheel 创建新转盘。
+     */
+    fun startNewWheel() {
+        val blank = WheelConfig(title = "", options = emptyList())
+        _uiState.value = EditUiState(
+            config = blank,
+            originalConfig = blank,
+            isNew = true
+        )
+    }
+
+    /**
+     * 判断是否有未保存变更。
+     *
+     * 新建模式：标题或选项非空即视为已有内容；编辑模式：与原始配置不一致。
      */
     fun hasChanges(): Boolean {
         val state = _uiState.value
-        return state.config != state.originalConfig
+        return if (state.isNew) {
+            state.config.title.isNotBlank() || state.config.options.isNotEmpty()
+        } else {
+            state.config != state.originalConfig
+        }
     }
 
     /**
      * 更新转盘标题。
      */
     fun onTitleChanged(title: String) {
-        _uiState.update { current ->
-            current.copy(config = current.config.copy(title = title))
-        }
+        _uiState.update { it.copy(config = it.config.copy(title = title)) }
     }
 
     /**
@@ -109,11 +126,29 @@ class EditViewModel(
 
     /**
      * 保存当前配置并返回是否成功。
+     *
+     * 新建模式：强制校验选项数量不少于 [MIN_OPTIONS_TO_SAVE]，通过后调用 createWheel；
+     * 编辑模式：直接调用 saveWheelConfig 更新当前转盘。
+     *
+     * @param onSaved 保存成功回调
+     * @param onError 校验失败回调，携带错误提示
      */
-    fun saveConfig(onSaved: () -> Unit) {
-        viewModelScope.launch {
-            wheelRepository.saveWheelConfig(_uiState.value.config)
-            onSaved()
+    fun saveConfig(onSaved: () -> Unit, onError: (String) -> Unit = {}) {
+        val state = _uiState.value
+        if (state.isNew) {
+            if (state.config.options.size < MIN_OPTIONS_TO_SAVE) {
+                onError("至少添加 $MIN_OPTIONS_TO_SAVE 个选项才能保存")
+                return
+            }
+            viewModelScope.launch {
+                wheelRepository.createWheel(state.config.title, state.config.options)
+                onSaved()
+            }
+        } else {
+            viewModelScope.launch {
+                wheelRepository.saveWheelConfig(state.config)
+                onSaved()
+            }
         }
     }
 
@@ -148,6 +183,13 @@ class EditViewModel(
         _uiState.update { it.copy(showUnsavedDialog = visible) }
     }
 
+    /**
+     * 设置/清除校验错误提示。
+     */
+    fun setErrorMessage(message: String?) {
+        _uiState.update { it.copy(errorMessage = message) }
+    }
+
     private fun updateOption(optionId: String, transform: (WheelOption) -> WheelOption) {
         _uiState.update { current ->
             current.copy(
@@ -161,6 +203,9 @@ class EditViewModel(
     }
 
     companion object {
+        /** 保存所需的最少选项数量。 */
+        const val MIN_OPTIONS_TO_SAVE = 2
+
         /**
          * 创建带依赖注入的 [EditViewModel] Factory。
          */

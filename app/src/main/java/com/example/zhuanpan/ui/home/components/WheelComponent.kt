@@ -27,6 +27,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.zhuanpan.data.model.AppSettings
 import com.example.zhuanpan.data.model.ColorScheme
 import com.example.zhuanpan.data.model.WheelOption
 import com.example.zhuanpan.ui.theme.ColorWhite
@@ -63,6 +64,7 @@ fun WheelComponent(
     options: List<WheelOption>,
     rotationDegrees: Float,
     colorSchemeName: String,
+    optionFontSizeSp: Float = AppSettings.DEFAULT_OPTION_FONT_SIZE,
     highlightLabel: String? = null,
     onManualRotation: (Float) -> Unit = {},
     onCenterClick: () -> Unit = {},
@@ -115,7 +117,8 @@ fun WheelComponent(
                 radius = radius,
                 center = center,
                 textMeasurer = textMeasurer,
-                density = density
+                density = density,
+                optionFontSizeSp = optionFontSizeSp
             )
         }
 
@@ -263,7 +266,8 @@ private fun DrawScope.drawWheelLabels(
     radius: Float,
     center: Offset,
     textMeasurer: androidx.compose.ui.text.TextMeasurer,
-    density: Float
+    density: Float,
+    optionFontSizeSp: Float
 ) {
     if (options.isEmpty()) return
 
@@ -291,27 +295,17 @@ private fun DrawScope.drawWheelLabels(
         val halfSweepRad = Math.toRadians((sweep / 2).toDouble().coerceAtMost(90.0))
         val arcLength = 2 * labelRadius * sin(halfSweepRad).toFloat()
 
-        val minCharSizePx = 8f * density
-        val maxByChord = (arcLength - safeMarginPx * 2).coerceAtLeast(minCharSizePx)
-        val maxByRadial = radialSpace * 0.3f
-        val maxByOptions = when {
-            options.size <= 4 -> radius * 0.12f
-            options.size <= 8 -> radius * 0.10f
-            options.size <= 12 -> radius * 0.08f
-            else -> radius * 0.065f
-        }
-        val maxCharSize = min(min(maxByChord / 2f, maxByRadial), maxByOptions)
-
-        drawVerticalLabel(
+        drawRadialLabel(
             label = option.label,
             centerAngle = sectorCenterAngle,
             labelRadius = labelRadius,
+            arcLength = arcLength,
+            radialSpace = radialSpace,
             center = center,
             textColor = textColor,
             textMeasurer = textMeasurer,
-            maxCharSize = maxCharSize,
-            radialSpace = radialSpace,
-            density = density
+            density = density,
+            optionFontSizeSp = optionFontSizeSp
         )
 
         currentAngle += sweep
@@ -319,50 +313,43 @@ private fun DrawScope.drawWheelLabels(
 }
 
 /**
- * 在指定角度位置绘制标签。
+ * 沿射线方向绘制标签。
  *
- * 放射状排列规则：
- * - 沿半径分布：文字顺着从转盘边缘指向圆心的半径方向排列
- * - 从外向内读：阅读顺序是从转盘最外侧边缘起头，向中间白色圆环方向延伸
- * - 多行折行：文字较长时沿半径方向折成多行，整体保持从外到内的线性布局
+ * 射线状排列规则：
+ * - 文字沿半径方向（从圆心向外）排列，每个字符的方向与所在选项的射线方向一致
+ * - 字符大小根据扇形弧长（切线方向）和径向空间（半径方向）自适应缩放，
+ *   不再依据选项数量分档，确保任意选项数量下均清晰可读
+ * - 当扇形位于左半圈（90°~270°）时自动翻转 180°，使文字"字头朝外"保持可读
  */
-private fun DrawScope.drawVerticalLabel(
+private fun DrawScope.drawRadialLabel(
     label: String,
     centerAngle: Float,
     labelRadius: Float,
+    arcLength: Float,
+    radialSpace: Float,
     center: Offset,
     textColor: Color,
     textMeasurer: androidx.compose.ui.text.TextMeasurer,
-    maxCharSize: Float,
-    radialSpace: Float,
-    density: Float
+    density: Float,
+    optionFontSizeSp: Float
 ) {
-    val minCharSizePx = 8f * density
-    val maxCharSizePx = 14f * density
-    val displayText = label.take(8)
+    val minCharSizePx = AppSettings.MIN_OPTION_FONT_SIZE * density
+    val maxCharSizePx = AppSettings.MAX_OPTION_FONT_SIZE * density
+    // 射线方向空间充裕，允许显示较多字符；超出部分截断
+    val displayText = label.take(10)
 
-    val splitIndex = if (displayText.length > 4) {
-        (displayText.length + 1) / 2
-    } else {
-        displayText.length
-    }
+    if (displayText.isEmpty()) return
 
-    val col1 = displayText.take(splitIndex)
-    val col2 = displayText.drop(splitIndex)
-    val isMultiColumn = col2.isNotEmpty()
+    val charCount = displayText.length
+    val safeMarginPx = 4f * density
 
-    val idealCharSize = maxCharSize.coerceIn(minCharSizePx, maxCharSizePx)
-    val columnHeight = if (isMultiColumn) {
-        maxOf(col1.length, col2.length) * idealCharSize
-    } else {
-        col1.length * idealCharSize
-    }
+    // 字符大小自适应：受弧长（切线方向）和径向空间共同限制，移除选项数量的硬性分档
+    val maxByArc = (arcLength - safeMarginPx * 2).coerceAtLeast(minCharSizePx)
+    val maxByRadial = (radialSpace * 0.85f) / charCount
+    // 用户设定的字号作为目标上限，受弧长与径向空间约束，确保不重叠
+    val userSizePx = optionFontSizeSp * density
+    val charSize = min(min(maxByArc, maxByRadial), userSizePx).coerceIn(minCharSizePx, maxCharSizePx)
 
-    val scaleFactor = if (columnHeight > radialSpace * 0.85f) {
-        radialSpace * 0.85f / columnHeight
-    } else 1f
-
-    val charSize = (idealCharSize * scaleFactor).coerceAtLeast(minCharSizePx)
     val textStyle = TextStyle(
         color = textColor,
         fontSize = (charSize / density).sp,
@@ -373,45 +360,34 @@ private fun DrawScope.drawVerticalLabel(
     val cosAngle = cos(angleRad).toFloat()
     val sinAngle = sin(angleRad).toFloat()
 
-    val perpCos = cos(Math.toRadians((centerAngle + 90f).toDouble())).toFloat()
-    val perpSin = sin(Math.toRadians((centerAngle + 90f).toDouble())).toFloat()
+    // 左半圈（90°~270°）文字会倒置，翻转 180° 使字头朝外，保持可读
+    val normalizedAngle = ((centerAngle % 360f) + 360f) % 360f
+    val isFlipped = normalizedAngle > 90f && normalizedAngle < 270f
+    val rotation = if (isFlipped) centerAngle + 180f else centerAngle
 
-    val col1Height = col1.length * charSize
-    val col2Height = col2.length * charSize
-    val totalHeight = if (isMultiColumn) maxOf(col1Height, col2Height) else col1Height
+    // 翻转时反转字符顺序，保证阅读方向仍然从内向外
+    val chars = if (isFlipped) displayText.reversed().toString() else displayText.toString()
 
-    val columnSpacing = charSize * 0.9f
-    val col1Offset = if (isMultiColumn) -columnSpacing / 2f else 0f
-    val col2Offset = if (isMultiColumn) columnSpacing / 2f else 0f
+    // 文字沿半径方向排列，整体中心对齐到 labelRadius
+    val textLength = chars.length * charSize
+    val startDistance = labelRadius - textLength / 2f
 
-    val rotationDeg = centerAngle + 90f
+    chars.forEachIndexed { index, char ->
+        val distance = startDistance + index * charSize + charSize / 2f
+        val charCenterX = center.x + distance * cosAngle
+        val charCenterY = center.y + distance * sinAngle
 
-    fun drawColumn(chars: CharSequence, columnOffset: Float) {
-        chars.forEachIndexed { charIndex, char ->
-            val distance = labelRadius + totalHeight / 2 - charIndex * charSize - charSize / 2
-
-            val baseX = center.x + distance * cosAngle
-            val baseY = center.y + distance * sinAngle
-            val charCenterX = baseX + columnOffset * perpCos
-            val charCenterY = baseY + columnOffset * perpSin
-
-            rotate(degrees = rotationDeg, pivot = Offset(charCenterX, charCenterY)) {
-                drawText(
-                    textMeasurer = textMeasurer,
-                    text = char.toString(),
-                    topLeft = Offset(
-                        x = charCenterX - charSize / 2,
-                        y = charCenterY - charSize / 2
-                    ),
-                    style = textStyle
-                )
-            }
+        rotate(degrees = rotation, pivot = Offset(charCenterX, charCenterY)) {
+            drawText(
+                textMeasurer = textMeasurer,
+                text = char.toString(),
+                topLeft = Offset(
+                    x = charCenterX - charSize / 2f,
+                    y = charCenterY - charSize / 2f
+                ),
+                style = textStyle
+            )
         }
-    }
-
-    drawColumn(col1, col1Offset)
-    if (isMultiColumn) {
-        drawColumn(col2, col2Offset)
     }
 }
 

@@ -67,6 +67,7 @@ import com.example.zhuanpan.ui.theme.PrimaryRed
 fun EditScreen(
     onBack: () -> Unit,
     onNavigateToBatchEdit: () -> Unit,
+    isNew: Boolean = false,
     viewModel: EditViewModel = viewModel(
         factory = EditViewModel.provideFactory(
             wheelRepository = (LocalContext.current.applicationContext as ZhuanpanApplication).wheelRepository
@@ -76,9 +77,24 @@ fun EditScreen(
     val uiState by viewModel.uiState.collectAsState()
     val config = uiState.config
 
-    // 每次进入编辑页时重新加载转盘配置，确保与仓库当前选中轮盘同步
-    LaunchedEffect(Unit) {
-        viewModel.reload()
+    // 进入页面时根据模式初始化：新建模式用空白草稿，编辑模式加载当前转盘
+    LaunchedEffect(isNew) {
+        if (isNew) viewModel.startNewWheel() else viewModel.reload()
+    }
+
+    // 保存校验错误提示
+    uiState.errorMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { viewModel.setErrorMessage(null) },
+            title = { Text("无法保存", fontWeight = FontWeight.Bold) },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.setErrorMessage(null) }) {
+                    Text("知道了", color = PrimaryRed)
+                }
+            },
+            containerColor = ColorWhite
+        )
     }
 
     // 未保存变更确认弹窗
@@ -92,7 +108,10 @@ fun EditScreen(
             },
             onSave = {
                 viewModel.setUnsavedDialogVisible(false)
-                viewModel.saveConfig { onBack() }
+                viewModel.saveConfig(
+                    onSaved = { onBack() },
+                    onError = { viewModel.setErrorMessage(it) }
+                )
             }
         )
     }
@@ -102,7 +121,7 @@ fun EditScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "编辑转盘",
+                        text = if (uiState.isNew) "新建轮盘" else "编辑转盘",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -126,7 +145,10 @@ fun EditScreen(
                 actions = {
                     IconButton(
                         onClick = {
-                            viewModel.saveConfig { onBack() }
+                            viewModel.saveConfig(
+                                onSaved = { onBack() },
+                                onError = { viewModel.setErrorMessage(it) }
+                            )
                         }
                     ) {
                         Icon(

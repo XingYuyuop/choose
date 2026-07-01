@@ -10,9 +10,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.zhuanpan.ZhuanpanApplication
 import com.example.zhuanpan.ui.batch_edit.BatchEditScreen
 import com.example.zhuanpan.ui.create_wheel.CreateWheelScreen
@@ -76,7 +78,7 @@ fun ZhuanpanNavHost(
         composable(route = Screen.Home.route) {
             HomeScreen(
                 onNavigateToEdit = {
-                    navController.navigate(Screen.Edit.route)
+                    navController.navigate("edit")
                 },
                 onNavigateToWheelList = {
                     navController.navigate(Screen.WheelList.route)
@@ -91,18 +93,19 @@ fun ZhuanpanNavHost(
         }
 
         composable(route = Screen.WheelList.route) {
-                WheelListScreen(
-                    onBack = {
-                        navController.popBackStack()
-                    },
-                    onNavigateToEdit = {
-                        navController.navigate(Screen.Edit.route)
-                    },
-                    onNavigateToCreateWheel = {
-                        navController.navigate(Screen.CreateWheel.route)
-                    }
-                )
-            }
+            // 列表页右上角"+"直接进入编辑页新建模式（跳过中转）
+            WheelListScreen(
+                onBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToEdit = {
+                    navController.navigate("edit")
+                },
+                onNavigateToCreateWheel = {
+                    navController.navigate("edit?isNew=true")
+                }
+            )
+        }
 
         composable(route = Screen.History.route) {
             HistoryScreen(
@@ -112,7 +115,16 @@ fun ZhuanpanNavHost(
             )
         }
 
-        composable(route = Screen.Edit.route) {
+        composable(
+            route = Screen.Edit.route,
+            arguments = listOf(
+                navArgument("isNew") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            )
+        ) { backStackEntry ->
+            val isNew = backStackEntry.arguments?.getBoolean("isNew") ?: false
             EditScreen(
                 onBack = {
                     navController.popBackStack()
@@ -120,28 +132,30 @@ fun ZhuanpanNavHost(
                 onNavigateToBatchEdit = {
                     navController.navigate(Screen.BatchEdit.route)
                 },
+                isNew = isNew,
                 viewModel = editViewModel
             )
         }
 
         composable(route = Screen.BatchEdit.route) {
-                BatchEditScreen(
-                    onBack = {
-                        navController.popBackStack()
-                    },
-                    viewModel = editViewModel
-                )
-            }
+            BatchEditScreen(
+                onBack = {
+                    navController.popBackStack()
+                },
+                viewModel = editViewModel
+            )
+        }
 
-            composable(route = Screen.CreateWheel.route) {
-                CreateWheelScreen(
-                    onBack = {
-                        navController.popBackStack()
-                    },
-                    onNavigateToEdit = {
-                        navController.navigate(Screen.Edit.route)
-                    }
-                )
-            }
+        composable(route = Screen.CreateWheel.route) {
+            // "自定义"入口跳转到编辑页新建模式
+            CreateWheelScreen(
+                onBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToCustomEdit = {
+                    navController.navigate("edit?isNew=true")
+                }
+            )
+        }
     }
 }

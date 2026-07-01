@@ -24,15 +24,15 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -140,23 +140,37 @@ fun SettingsBottomSheet(
             HorizontalDivider(color = Divider, thickness = 0.5.dp)
 
             // 结果字体大小
-            SettingsSliderItem(
+            SettingsStepperItem(
                 icon = Icons.Default.FormatSize,
                 title = "结果字体大小",
-                value = settings.resultFontSizeSp,
-                valueRange = AppSettings.MIN_FONT_SIZE..AppSettings.MAX_FONT_SIZE,
-                valueText = "${settings.resultFontSizeSp.toInt()}sp",
-                onValueChange = { viewModel.onFontSizeChanged(it) }
+                value = "${settings.resultFontSizeSp.toInt()}sp",
+                onDecrease = { viewModel.onFontSizeChanged(false) },
+                onIncrease = { viewModel.onFontSizeChanged(true) },
+                onReset = { viewModel.onResetFontSize() }
             )
 
             HorizontalDivider(color = Divider, thickness = 0.5.dp)
 
             // 转盘大小
-            SettingsSliderItem(
+            SettingsStepperItem(
                 icon = Icons.Default.AspectRatio,
                 title = "转盘大小",
-                value = settings.wheelSize,
-                onValueChange = { viewModel.onWheelSizeChanged(it) }
+                value = "${(settings.wheelSize * 100).toInt()}%",
+                onDecrease = { viewModel.onWheelSizeChanged(false) },
+                onIncrease = { viewModel.onWheelSizeChanged(true) },
+                onReset = { viewModel.onResetWheelSize() }
+            )
+
+            HorizontalDivider(color = Divider, thickness = 0.5.dp)
+
+            // 选项文字大小
+            SettingsStepperItem(
+                icon = Icons.Default.TextFields,
+                title = "选项文字大小",
+                value = "${settings.optionFontSizeSp.toInt()}sp",
+                onDecrease = { viewModel.onOptionFontSizeChanged(false) },
+                onIncrease = { viewModel.onOptionFontSizeChanged(true) },
+                onReset = { viewModel.onResetOptionFontSize() }
             )
         }
     }
@@ -305,6 +319,8 @@ private fun SettingsToggleItem(
 
 /**
  * 设置步进器项。
+ *
+ * @param onReset 恢复默认回调，非 null 时显示"恢复默认"按钮
  */
 @Composable
 private fun SettingsStepperItem(
@@ -313,6 +329,7 @@ private fun SettingsStepperItem(
     value: String,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
+    onReset: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -359,7 +376,42 @@ private fun SettingsStepperItem(
                 icon = Icons.Default.Add,
                 onClick = onIncrease
             )
+            if (onReset != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+                ResetButton(onClick = onReset)
+            }
         }
+    }
+}
+
+/**
+ * 恢复默认按钮。
+ */
+@Composable
+private fun ResetButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Background)
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Refresh,
+            contentDescription = "恢复默认",
+            tint = OnSurfaceVariant,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = "默认",
+            fontSize = 12.sp,
+            color = OnSurfaceVariant
+        )
     }
 }
 
@@ -442,60 +494,6 @@ private fun StepperButton(
             contentDescription = null,
             tint = OnSurfaceVariant,
             modifier = Modifier.size(18.dp)
-        )
-    }
-}
-
-/**
- * 设置滑动条项（用于转盘大小、字体大小等连续值调节）。
- */
-@Composable
-private fun SettingsSliderItem(
-    icon: ImageVector,
-    title: String,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    valueRange: ClosedFloatingPointRange<Float> = AppSettings.MIN_WHEEL_SIZE..AppSettings.MAX_WHEEL_SIZE,
-    valueText: String = "${(value * 100).toInt()}%",
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = OnSurfaceVariant,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = title,
-            fontSize = 16.sp,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            colors = SliderDefaults.colors(
-                thumbColor = PrimaryRed,
-                activeTrackColor = PrimaryRed,
-                inactiveTrackColor = OnSurfaceVariant.copy(alpha = 0.3f)
-            ),
-            modifier = Modifier.weight(1f)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = valueText,
-            fontSize = 14.sp,
-            color = OnSurfaceVariant,
-            modifier = Modifier.width(48.dp)
         )
     }
 }

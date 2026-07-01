@@ -364,6 +364,7 @@ private fun HomeContent(
                     options = config.options,
                     rotationDegrees = rotationDegrees,
                     colorSchemeName = settings.colorSchemeName,
+                    optionFontSizeSp = settings.optionFontSizeSp,
                     highlightLabel = if (!isSpinning) currentResult else null,
                     onManualRotation = onManualRotation,
                     onCenterClick = onSpinClick,

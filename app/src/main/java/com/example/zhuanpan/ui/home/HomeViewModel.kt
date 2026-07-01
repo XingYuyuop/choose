@@ -697,15 +697,6 @@ class HomeViewModel(
     }
 
     /**
-     * 新建转盘：创建一个空转盘并选中它。
-     */
-    fun onCreateWheel() {
-        viewModelScope.launch {
-            wheelRepository.createWheel()
-        }
-    }
-
-    /**
      * 选中指定转盘作为当前转盘。
      */
     fun onSelectWheel(id: String) {

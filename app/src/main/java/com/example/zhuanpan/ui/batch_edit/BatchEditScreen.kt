@@ -102,7 +102,10 @@ fun BatchEditScreen(
                             }
                             errorMessage = null
                             viewModel.applyBatchOptions(labels)
-                            viewModel.saveConfig(onBack)
+                            viewModel.saveConfig(
+                                onSaved = onBack,
+                                onError = { errorMessage = it }
+                            )
                         }
                     ) {
                         Icon(
