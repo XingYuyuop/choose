@@ -54,7 +54,8 @@ class EditViewModel(
         _uiState.value = EditUiState(
             config = blank,
             originalConfig = blank,
-            isNew = true
+            isNew = true,
+            saved = false
         )
     }
 
@@ -142,11 +143,13 @@ class EditViewModel(
             }
             viewModelScope.launch {
                 wheelRepository.createWheel(state.config.title, state.config.options)
+                _uiState.update { it.copy(saved = true) }
                 onSaved()
             }
         } else {
             viewModelScope.launch {
                 wheelRepository.saveWheelConfig(state.config)
+                _uiState.update { it.copy(saved = true) }
                 onSaved()
             }
         }

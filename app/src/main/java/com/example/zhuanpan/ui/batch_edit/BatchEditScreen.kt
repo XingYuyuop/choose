@@ -103,7 +103,7 @@ fun BatchEditScreen(
                             errorMessage = null
                             viewModel.applyBatchOptions(labels)
                             viewModel.saveConfig(
-                                onSaved = onBack,
+                                onSaved = {},
                                 onError = { errorMessage = it }
                             )
                         }

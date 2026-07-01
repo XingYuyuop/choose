@@ -9,6 +9,7 @@ import com.example.zhuanpan.data.model.WheelConfig
  * @property originalConfig 进入页面时的原始配置，用于判断是否有变更
  * @property showUnsavedDialog 是否显示未保存确认对话框
  * @property isNew 是否为新建模式（true 时保存走 createWheel 并校验选项数量）
+ * @property saved 是否已保存成功（用于防止保存后返回时重置状态）
  * @property errorMessage 校验错误提示（如选项不足）
  */
 data class EditUiState(
@@ -16,5 +17,6 @@ data class EditUiState(
     val originalConfig: WheelConfig = WheelConfig(),
     val showUnsavedDialog: Boolean = false,
     val isNew: Boolean = false,
+    val saved: Boolean = false,
     val errorMessage: String? = null
 )
