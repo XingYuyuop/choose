@@ -718,10 +718,9 @@ class HomeViewModel(
      * 更新指定转盘标题（支持内联编辑，允许空标题）。
      *
      * @param wheelId 转盘 ID
-     * @param title 新标题，长度限制 1~20 字符
+     * @param title 新标题
      */
     fun onWheelTitleChanged(wheelId: String, title: String) {
-        if (title.length > 20) return
 
         viewModelScope.launch {
             val target = wheelRepository.wheels.first().find { it.id == wheelId } ?: return@launch
@@ -732,11 +731,11 @@ class HomeViewModel(
     /**
      * 添加新选项。
      *
-     * @param label 选项名称，长度限制 1~20 字符
+     * @param label 选项名称
      */
     fun onOptionAdded(label: String) {
         val trimmed = label.trim()
-        if (trimmed.isEmpty() || trimmed.length > 20) return
+        if (trimmed.isEmpty()) return
 
         viewModelScope.launch {
             val config = wheelRepository.wheelConfig.first()
@@ -755,11 +754,11 @@ class HomeViewModel(
      * 更新指定选项名称。
      *
      * @param optionId 选项 ID
-     * @param label 新名称，长度限制 1~20 字符
+     * @param label 新名称
      */
     fun onOptionLabelChanged(optionId: String, label: String) {
         val trimmed = label.trim()
-        if (trimmed.isEmpty() || trimmed.length > 20) return
+        if (trimmed.isEmpty()) return
 
         viewModelScope.launch {
             val config = wheelRepository.wheelConfig.first()

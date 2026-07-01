@@ -65,9 +65,7 @@ fun OptionItem(
         ) {
             BasicTextField(
                 value = option.label,
-                onValueChange = {
-                    if (it.length <= MAX_OPTION_LABEL_LENGTH) onLabelChange(it)
-                },
+                onValueChange = onLabelChange,
                 textStyle = TextStyle(
                     fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -137,22 +135,8 @@ fun OptionItem(
                 )
             }
         }
-
-        // 字数计数提示
-        Text(
-            text = "${option.label.length}/$MAX_OPTION_LABEL_LENGTH",
-            fontSize = 11.sp,
-            color = if (option.label.length >= MAX_OPTION_LABEL_LENGTH) PrimaryRed else OnSurfaceVariant,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 2.dp, end = 40.dp),
-            textAlign = TextAlign.End
-        )
     }
 }
-
-/** 选项名称最大字符数。 */
-const val MAX_OPTION_LABEL_LENGTH = 20
 
 /**
  * 权重步进器小按钮。

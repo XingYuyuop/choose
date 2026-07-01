@@ -5,9 +5,11 @@ import com.example.zhuanpan.data.local.WheelStoreSerializer
 import com.example.zhuanpan.data.local.ZhuanpanDataStore
 import com.example.zhuanpan.data.model.WheelConfig
 import com.example.zhuanpan.data.model.WheelStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 /**
@@ -121,6 +123,8 @@ class WheelRepositoryImpl(
         WheelStoreSerializer.deserialize(dataStore.wheelsStoreJson.first())
 
     private suspend fun saveStore(store: WheelStore) {
-        dataStore.saveWheelsStoreJson(WheelStoreSerializer.serialize(store))
+        withContext(Dispatchers.IO) {
+            dataStore.saveWheelsStoreJson(WheelStoreSerializer.serialize(store))
+        }
     }
 }

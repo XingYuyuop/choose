@@ -196,10 +196,5 @@ private fun validateBatchText(text: String): Pair<List<String>, String?> {
         return Pair(emptyList(), "请至少输入一个选项")
     }
 
-    val tooLong = labels.filter { it.length > 20 }
-    if (tooLong.isNotEmpty()) {
-        return Pair(emptyList(), "单个选项不能超过 20 个字符")
-    }
-
     return Pair(labels, null)
 }
