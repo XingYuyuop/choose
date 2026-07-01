@@ -6,6 +6,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -138,9 +140,17 @@ fun ZhuanpanNavHost(
         }
 
         composable(route = Screen.BatchEdit.route) {
+            val editState by editViewModel.uiState.collectAsState()
             BatchEditScreen(
                 onBack = {
                     navController.popBackStack()
+                },
+                onSaveSuccess = if (editState.isNew) {
+                    // 新建模式：保存成功后跳过 EditScreen，直接回到轮盘列表
+                    { navController.popBackStack(Screen.Edit.route, inclusive = true) }
+                } else {
+                    // 编辑模式：保存成功后返回 EditScreen
+                    { navController.popBackStack() }
                 },
                 viewModel = editViewModel
             )

@@ -79,16 +79,7 @@ fun EditScreen(
 
     // 进入页面时根据模式初始化：新建模式用空白草稿，编辑模式加载当前转盘
     LaunchedEffect(isNew) {
-        if (!uiState.saved) {
-            if (isNew) viewModel.startNewWheel() else viewModel.reload()
-        }
-    }
-
-    // 保存成功后自动返回，避免停留在显示"新建轮盘"的编辑页
-    LaunchedEffect(uiState.saved) {
-        if (uiState.saved) {
-            onBack()
-        }
+        if (isNew) viewModel.startNewWheel() else viewModel.reload()
     }
 
     // 保存校验错误提示
@@ -118,7 +109,7 @@ fun EditScreen(
             onSave = {
                 viewModel.setUnsavedDialogVisible(false)
                 viewModel.saveConfig(
-                    onSaved = {},
+                    onSaved = { onBack() },
                     onError = { viewModel.setErrorMessage(it) }
                 )
             }
@@ -155,7 +146,7 @@ fun EditScreen(
                     IconButton(
                         onClick = {
                             viewModel.saveConfig(
-                                onSaved = {},
+                                onSaved = { onBack() },
                                 onError = { viewModel.setErrorMessage(it) }
                             )
                         }

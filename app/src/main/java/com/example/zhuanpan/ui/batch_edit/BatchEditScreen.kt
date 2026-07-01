@@ -46,13 +46,15 @@ import com.example.zhuanpan.ui.theme.PrimaryRed
  *
  * 以整页形式展示多行文本输入框，每行对应一个选项，保存后替换当前转盘的全部选项。
  *
- * @param onBack 返回回调
+ * @param onBack 返回回调（取消/返回上一页）
+ * @param onSaveSuccess 保存成功回调（新建模式下跳过中间页面直达列表）
  * @param viewModel 编辑 ViewModel（与编辑页共享同一份内存状态）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BatchEditScreen(
     onBack: () -> Unit,
+    onSaveSuccess: () -> Unit = onBack,
     viewModel: EditViewModel = viewModel(
         factory = EditViewModel.provideFactory(
             wheelRepository = (LocalContext.current.applicationContext as ZhuanpanApplication).wheelRepository
@@ -103,7 +105,7 @@ fun BatchEditScreen(
                             errorMessage = null
                             viewModel.applyBatchOptions(labels)
                             viewModel.saveConfig(
-                                onSaved = {},
+                                onSaved = onSaveSuccess,
                                 onError = { errorMessage = it }
                             )
                         }

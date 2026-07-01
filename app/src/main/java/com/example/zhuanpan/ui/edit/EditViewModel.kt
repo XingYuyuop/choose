@@ -54,8 +54,7 @@ class EditViewModel(
         _uiState.value = EditUiState(
             config = blank,
             originalConfig = blank,
-            isNew = true,
-            saved = false
+            isNew = true
         )
     }
 
@@ -143,13 +142,15 @@ class EditViewModel(
             }
             viewModelScope.launch {
                 wheelRepository.createWheel(state.config.title, state.config.options)
-                _uiState.update { it.copy(saved = true) }
+                // 新建模式保存成功后清除草稿，防止残留数据导致返回时弹出未保存对话框
+                _uiState.value = EditUiState()
                 onSaved()
             }
         } else {
             viewModelScope.launch {
                 wheelRepository.saveWheelConfig(state.config)
-                _uiState.update { it.copy(saved = true) }
+                // 更新原始配置快照，使 hasChanges() 正确返回 false
+                _uiState.update { it.copy(originalConfig = it.config) }
                 onSaved()
             }
         }
