@@ -145,12 +145,15 @@ fun ZhuanpanNavHost(
                 onBack = {
                     navController.popBackStack()
                 },
-                onSaveSuccess = if (editState.isNew) {
-                    // 新建模式：保存成功后跳过 EditScreen，直接回到轮盘列表
-                    { navController.popBackStack(Screen.Edit.route, inclusive = true) }
-                } else {
-                    // 编辑模式：保存成功后返回 EditScreen
-                    { navController.popBackStack() }
+                onSaveSuccess = {
+                    if (editState.isNew) {
+                        // 新建模式保存成功：清除新建路由，跳转到编辑路由（显示刚创建的轮盘）
+                        navController.popBackStack(Screen.Edit.route, inclusive = true)
+                        navController.navigate("edit")
+                    } else {
+                        // 编辑模式保存成功：返回 EditScreen
+                        navController.popBackStack()
+                    }
                 },
                 viewModel = editViewModel
             )

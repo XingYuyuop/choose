@@ -77,9 +77,9 @@ fun EditScreen(
     val uiState by viewModel.uiState.collectAsState()
     val config = uiState.config
 
-    // 进入页面时根据模式初始化：新建模式用空白草稿，编辑模式加载当前转盘
-    LaunchedEffect(isNew) {
-        if (isNew) viewModel.startNewWheel() else viewModel.reload()
+    // 进入页面时根据模式初始化（仅首次执行，防止返回时再次清空草稿）
+    LaunchedEffect(Unit) {
+        viewModel.initialize(isNew)
     }
 
     // 保存校验错误提示

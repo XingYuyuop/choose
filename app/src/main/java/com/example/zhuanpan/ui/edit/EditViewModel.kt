@@ -30,6 +30,24 @@ class EditViewModel(
     private val _uiState = MutableStateFlow(EditUiState())
     val uiState: StateFlow<EditUiState> = _uiState.asStateFlow()
 
+    /** 是否已完成初始化，防止返回时再次清空草稿。 */
+    private var initialized = false
+
+    /**
+     * 根据模式初始化 ViewModel 状态。
+     *
+     * 每次进入页面时检查：若当前模式与目标模式一致且已初始化，则跳过；
+     * 否则重新初始化（新建模式重置空白草稿，编辑模式 reload 当前轮盘）。
+     *
+     * @param isNew 是否为新建模式
+     */
+    fun initialize(isNew: Boolean) {
+        // 若已是目标模式且已初始化，跳过（防止返回时重复清空草稿）
+        if (initialized && _uiState.value.isNew == isNew) return
+        initialized = true
+        if (isNew) startNewWheel() else reload()
+    }
+
     /**
      * 从仓库重新加载当前转盘配置（编辑模式）。
      *
@@ -127,7 +145,8 @@ class EditViewModel(
     /**
      * 保存当前配置并返回是否成功。
      *
-     * 新建模式：强制校验选项数量不少于 [MIN_OPTIONS_TO_SAVE]，通过后调用 createWheel；
+     * 新建模式：强制校验选项数量不少于 [MIN_OPTIONS_TO_SAVE]，通过后调用 createWheel，
+     *          选中新轮盘并从仓库 reload 数据，切换为编辑模式；
      * 编辑模式：直接调用 saveWheelConfig 更新当前转盘。
      *
      * @param onSaved 保存成功回调
@@ -141,9 +160,15 @@ class EditViewModel(
                 return
             }
             viewModelScope.launch {
+                // 创建新轮盘（createWheel 内部已自动选中新轮盘）
                 wheelRepository.createWheel(state.config.title, state.config.options)
-                // 新建模式保存成功后清除草稿，防止残留数据导致返回时弹出未保存对话框
-                _uiState.value = EditUiState()
+                // 从仓库 reload 刚创建的轮盘数据（切换为编辑模式）
+                val savedConfig = wheelRepository.wheelConfig.first()
+                _uiState.value = EditUiState(
+                    config = savedConfig,
+                    originalConfig = savedConfig,
+                    isNew = false
+                )
                 onSaved()
             }
         } else {
