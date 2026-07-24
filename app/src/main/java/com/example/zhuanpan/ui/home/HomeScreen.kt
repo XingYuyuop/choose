@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
@@ -890,9 +889,9 @@ private fun MultiSpinPickerDialog(
                     listOf(5, 20, 50, 100, 500).forEach { times ->
                         TextButton(
                             onClick = { onConfirm(times) },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                             modifier = Modifier
-                                .wrapContentSize()
+                                .weight(1f)
                                 .clip(RoundedCornerShape(percent = 50))
                                 .background(PrimaryRed.copy(alpha = 0.1f))
                         ) {
@@ -902,7 +901,9 @@ private fun MultiSpinPickerDialog(
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 13.sp,
                                 maxLines = 1,
-                                softWrap = false
+                                softWrap = false,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }
