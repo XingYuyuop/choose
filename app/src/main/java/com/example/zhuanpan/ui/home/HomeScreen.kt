@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -862,7 +863,7 @@ private fun MultiSpinPickerDialog(
     var inputText by remember { mutableStateOf("") }
 
     val parsedCount = inputText.toIntOrNull()
-    val isValid = parsedCount != null && parsedCount in 1..100
+    val isValid = parsedCount != null && parsedCount in 1..500
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -876,18 +877,19 @@ private fun MultiSpinPickerDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = "输入或选择需要旋转的次数（1~100）",
+                    text = "输入或选择需要旋转的次数（1~500）",
                     fontSize = 14.sp,
                     color = OnSurfaceVariant
                 )
 
                 // 快捷选项
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    listOf(3, 5, 10, 20).forEach { times ->
+                    listOf(5, 20, 50, 100, 500).forEach { times ->
                         TextButton(
                             onClick = { onConfirm(times) },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                             modifier = Modifier
                                 .clip(RoundedCornerShape(percent = 50))
                                 .background(PrimaryRed.copy(alpha = 0.1f))
@@ -896,7 +898,7 @@ private fun MultiSpinPickerDialog(
                                 text = "${times}次",
                                 color = PrimaryRed,
                                 fontWeight = FontWeight.Medium,
-                                fontSize = 14.sp
+                                fontSize = 13.sp
                             )
                         }
                     }
